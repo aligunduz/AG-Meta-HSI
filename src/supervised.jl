@@ -47,12 +47,53 @@ end
 filehash(path) = open(io -> bytes2hex(sha256(io)), path)
 write_toml(path, data) = open(io -> TOML.print(io, data), path, "w")
 
+finite_leaves(x::AbstractArray) = all(isfinite, x)
+finite_leaves(x::NamedTuple) = all(finite_leaves, values(x))
+finite_leaves(::Nothing) = true
+changed_parameters(a::AbstractArray, b::AbstractArray) = count(a .!= b)
+changed_parameters(a::NamedTuple, b::NamedTuple) =
+    sum(changed_parameters(a[k], b[k]) for k in keys(a); init=0)
+
+"""One in-memory Adam update on training records only; no evaluation or files."""
+function smoke_step(model, ps, st, rng, scene, split; learning_rate)
+    ids = randperm(rng, length(split.train))[1:15]
+    records = split.train[ids]
+    x = patch_batch(scene, records)
+    y = Float32.([c == record[3] for c in 1:9, record in records])
+    st = Lux.trainmode(st)
+    original_ps = deepcopy(ps) # Compare values even if an optimizer mutates storage.
+    opt = Optimisers.setup(Optimisers.Adam(Float32(learning_rate)), ps)
+    (loss_before, nextst), back = Zygote.pullback(
+        p -> supervised_loss(model, p, st, x, y), ps)
+    isfinite(loss_before) || error("Smoke: nonfinite loss before update")
+    grads = back((one(loss_before), nothing))[1]
+    finite_leaves(grads) || error("Smoke: nonfinite gradients")
+    opt, ps = Optimisers.update(opt, ps, grads) # Exactly one optimizer update.
+    finite_leaves(ps) || error("Smoke: nonfinite parameters after update")
+    changed = changed_parameters(original_ps, ps)
+    changed > 0 || error("Smoke: no model parameter changed")
+    # Same batch, still trainmode: both losses use batch statistics.
+    # Lux expects trainmode inside AD. Build the forward tape but do not call
+    # its pullback: this does not perform a second backward or Adam update.
+    (loss_after, _), _ = Zygote.pullback(
+        p -> supervised_loss(model, p, nextst, x, y), ps)
+    isfinite(loss_after) || error("Smoke: nonfinite loss after update")
+    println("Smoke: batch_size=15; Adam updates=1")
+    println("Loss before=$loss_before; finite=true")
+    println("Loss after=$loss_after; finite=true (decrease not required)")
+    println("Gradients finite=true; parameters changed=$changed")
+    return (; loss_before, loss_after, gradients_finite=true,
+        changed_parameters=changed, optimizer_updates=1, batch_size=15)
+end
+
 """Check-only by default. Training requires an explicit train=true.
 Fixed final epoch selection; test labels enter metrics only after checkpoint save.
 """
 function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.tsv",
         output_dir="outputs/ssarn_seed93", seed=93, epochs=300, learning_rate=0.001,
-        batch_size=15, test_batch_size=32, train=false)
+        batch_size=15, test_batch_size=32, train=false, smoke=false)
+    train && smoke && error("Choose only one mode: --smoke, --check, or --train")
+    smoke && batch_size != 15 && error("Smoke requires batch_size=15")
     epochs > 0 || error("epochs must be positive")
     isfinite(learning_rate) && learning_rate > 0 || error("learning_rate must be positive and finite")
     batch_size >= 2 || error("batch_size must be at least 2")
@@ -64,6 +105,11 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
     rng = MersenneTwister(seed)
     model = ssarn()
     ps, st = Lux.setup(rng, model)
+    if smoke
+        report = smoke_step(model, ps, st, rng, scene, split; learning_rate)
+        filehash(split_path) == split_digest || error("Split changed during smoke check")
+        return report
+    end
     xcheck = patch_batch(scene, split.train[1:1])
     logits = check_ssarn(model, ps, st, xcheck)
     println("Forward check: $(size(xcheck)) -> $(size(logits)); finite logits")

@@ -29,6 +29,31 @@ test tahmini veya deney çıktı dosyası üretmez. `9×9×103` yama Lux için
 `9×9×103×1×1` biçimine getirilir; `9×1` sonlu logit üretmesi doğrulanır.
 Aynı kontrol eğitim komutunda da ilk güncellemeden önce çalışır.
 
+### Tek adımlık smoke kontrolü
+
+```powershell
+julia --project=. scripts/ssarn_up.jl --smoke
+```
+
+Kayıtlı 45 eğitim pikselinden seed ile seçilen 15 örnekte bir forward/backward
+ve **tam olarak bir Adam güncellemesi** yapar. Aynı batch'te güncelleme sonrası
+ikinci forward ile loss kontrol edilir. İki loss'un ve gradyanların sonlu
+olması, en az bir parametrenin değişmesi zorunludur; loss düşüşü zorunlu değildir.
+Her iki loss trainmode BatchNorm ile hesaplanır. Test yamaları/tahminleri,
+OA/AA, checkpoint, sonuç dizini veya eğitim dosyası oluşturulmaz.
+`--batch-size` smoke için 15 olmalıdır. `--smoke`, `--check`, `--train`
+birbirini dışlar; birlikte kullanımları hatadır. Varsayılan mod hâlâ `--check`.
+
+VS Code Run and Debug listesinden **Julia: SSARN smoke** seçip **Ctrl+F5**
+ile çalıştırabilirsiniz. Bu seçenek yerel, Git tarafından yok sayılan
+`.vscode/launch.json` dosyasına eklenmiştir.
+
+Smoke argüman testleri ve gerçek UP CLI kontrolü (bir Adam adımı):
+
+```powershell
+julia --project=. test/smoke.jl
+```
+
 Eğitimi **siz başlatmak istediğinizde**:
 
 ```powershell
