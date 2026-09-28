@@ -2,6 +2,15 @@ module AGMetaHSI
 
 using MAT
 using Random
+using Lux
+using NNlib
+using Statistics
+using Optimisers
+using Zygote
+using Serialization
+using SHA
+using TOML
+using Dates
 
 export HSIScene, PixelSplit, load_pavia_university, make_pixel_split,
        save_pixel_split, load_pixel_split, validate_pixel_split, extract_patch
@@ -149,5 +158,8 @@ function extract_patch(scene::HSIScene, row::Int, col::Int; patch_size::Int=9)
         scene.cube[r1:r2, c1:c2, :]
     return patch
 end
+
+include("ssarn.jl")
+include("supervised.jl")
 
 end # module
