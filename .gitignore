@@ -1,0 +1,6 @@
+/data/
+/outputs/
+/Manifest.toml
+/.vscode/
+*.jld2
+*.mat
