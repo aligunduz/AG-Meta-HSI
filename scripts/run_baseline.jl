@@ -2,14 +2,14 @@ using AGMetaHSI
 
 function parse_baseline_args(args)
     if "--help" in args
-        println("Usage: julia --project=. scripts/run_baseline.jl --baseline SSARN --dataset UP|SA|IP --train [--data DIR] [--split TSV] [--output DIR] [--seed 93] [--k 5] [--epochs 300] [--lr 0.001] [--batch-size 15] [--test-batch-size 32]")
+        println("Usage: julia --project=. scripts/run_baseline.jl --baseline SSARN --dataset UP|SA|IP --train [--data DIR] [--split TSV] [--output DIR] [--seed 93] [--k 5] [--epochs 300] [--lr 0.001] [--batch-size 15] [--test-batch-size 32] [--device cpu|gpu]")
         return nothing
     end
     options = Dict{String,String}()
     train = false
     i = 1
     valid = Set(["--baseline", "--dataset", "--data", "--split", "--output",
-                 "--seed", "--k", "--epochs", "--lr", "--batch-size", "--test-batch-size"])
+                 "--seed", "--k", "--epochs", "--lr", "--batch-size", "--test-batch-size", "--device"])
     while i <= length(args)
         flag = args[i]
         if flag == "--train"
@@ -34,11 +34,13 @@ function parse_baseline_args(args)
     lr = parse(Float64, get(options, "--lr", "0.001"))
     batch_size = parse(Int, get(options, "--batch-size", "15"))
     test_batch_size = parse(Int, get(options, "--test-batch-size", "32"))
+    device = Symbol(lowercase(get(options, "--device", "gpu")))
+    device in (:cpu, :gpu) || error("--device must be cpu or gpu")
     data_dir = get(options, "--data", "data")
     default_split = joinpath("outputs", "$(lowercase(dataset))_split_seed$(seed)_k$(k).tsv")
     split_path = get(options, "--split", default_split)
     output_dir = get(options, "--output", joinpath("outputs", "$(lowercase(baseline))_$(lowercase(dataset))_seed$(seed)"))
-    return (; baseline, dataset, seed, k, epochs, lr, batch_size,
+    return (; baseline, dataset, seed, k, epochs, lr, batch_size, device,
             test_batch_size, data_dir, split_path, output_dir,
             split_given=haskey(options, "--split"))
 end
@@ -57,7 +59,7 @@ function main(args)
         split_path=options.split_path, output_dir=options.output_dir,
         seed=options.seed, k=options.k, epochs=options.epochs,
         learning_rate=options.lr, batch_size=options.batch_size,
-        test_batch_size=options.test_batch_size, train=true)
+        test_batch_size=options.test_batch_size, device=options.device, train=true)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

@@ -63,11 +63,33 @@ julia --project=. scripts/ssarn_up.jl --train --epochs 300 --lr 0.001 --seed 93 
 `--data`, `--split`, `--output` yolları değiştirilebilir. Split metadata'sı
 seed=93/k=5, sınıflar 1:9 ve bütün etiketli piksellerin tam kapsanması doğrulanır.
 Başka geçerli bir split yolu vermek farklı bir deneydir; dosyanın SHA256 değeri
-kaydedilir. Var olan çıktı dizinine yazmak reddedilir. CPU/Float32 kullanılır;
-GPU desteği henüz yoktur. İlk çalıştırmada Julia derlemesi zaman alabilir.
+kaydedilir. Var olan çıktı dizinine yazmak reddedilir. Eğitim varsayılan olarak
+NVIDIA CUDA üzerinde Float32 kullanır; CPU için açıkça `--device cpu` verin.
+Kontrol ve smoke modlarının varsayılanı CPU'dur. GPU seçildiğinde
+CUDA kullanılamıyorsa koşu hata verir. İlk çalıştırmada Julia/CUDA derlemesi
+zaman alabilir.
 
 ### Colab, veri kümesi seçimi ve W&B
 
+Julia hücreleriyle Colab'da çalışmak için
+[`notebooks/SSARN_colab_julia.ipynb`](notebooks/SSARN_colab_julia.ipynb)
+dosyasını açın ve çalışma ortamını **Julia** seçin. Bu defter doğrudan GitHub
+deposunu klonlar; eğitim Julia oturumunda yürür. Kod hücreleri Julia'dır.
+Colab'da **GPU** donanım hızlandırıcısını da seçin. Defter `DEVICE="gpu"`
+varsayılanıyla GPU'yu zorunlu tutar ve cihaz adını gösterir.
+Defter kodu GitHub'dan çektiği için bu yerel GPU değişiklikleri kullanıcı
+tarafından commit ve push edildikten sonra Colab'da kullanılabilir.
+Varsayılan `DATA_SOURCE="upload"` için iki `.mat` dosyasını Colab'ın Files
+panelinden `/content/hsi-data` klasörüne yükleyin. `DATA_SOURCE="drive"` ve
+`OUTPUT_SOURCE="drive"` ancak Google Drive Julia oturumunda önceden bağlıysa
+çalışır; bağlı değilse defter açık hata verir. Çıktı varsayılan olarak
+`/content/ag-meta-hsi-runs` klasöründedir, bu klasörü oturum kapanmadan indirin.
+W&B kaydı `Wandb.jl` ile ayrı bir Julia ortamında yapılır. Julia defterinin
+kaynağını değiştirirseniz `python scripts/build_colab_julia.py` komutuyla
+yeniden üretebilirsiniz; bu Python betiği yalnızca `.ipynb` JSON dosyasını
+oluşturur, Colab kod hücreleri Julia kalır.
+
+Önceki Python hücreli Colab yolu da kullanılabilir:
 [`notebooks/SSARN_colab.ipynb`](notebooks/SSARN_colab.ipynb) dosyasını Google
 Colab'da açın. Defter kodu doğrudan
 [`aligunduz/AG-Meta-HSI`](https://github.com/aligunduz/AG-Meta-HSI) deposundan
@@ -99,11 +121,11 @@ kopyalayıp `RUN_TRAINING=false` ve `EXISTING_OUTPUT_DIR` değerini ayarlayın.
 Julia CLI ile aynı seçimi yapmak için örnek:
 
 ```powershell
-julia --project=. scripts/run_baseline.jl --baseline SSARN --dataset SA --train --data data --seed 93 --k 5 --epochs 300 --lr 0.001 --batch-size 15 --test-batch-size 32 --output outputs/ssarn_sa_seed93
+julia --project=. scripts/run_baseline.jl --baseline SSARN --dataset SA --train --device gpu --data data --seed 93 --k 5 --epochs 300 --lr 0.001 --batch-size 15 --test-batch-size 32 --output outputs/ssarn_sa_seed93
 ```
 
 Bu çoklu veri kümesi yolu SSARN supervised baseline'ıdır; QMTN meta-öğrenme
-veya GPU eğitimi içermez. Makaledeki on koşulu deneyle karşılaştırma için
+içermez. Makaledeki on koşulu deneyle karşılaştırma için
 farklı seed'leri ayrı ayrı çalıştırın ve dağılımı ayrıca hesaplayın.
 
 ## Sabit veri ve değerlendirme protokolü

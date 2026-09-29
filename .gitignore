@@ -5,3 +5,5 @@
 *.jld2
 *.mat
 /tmp/
+/wandb/
+__pycache__/

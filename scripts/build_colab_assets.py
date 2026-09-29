@@ -31,7 +31,7 @@ Bu defter Julia/Lux ile **SSARN** supervised baseline'ını çalıştırır. `DA
 | SA | `Salinas_corrected.mat`, `Salinas_gt.mat` | 204 / 16 |
 | IP | `Indian_pines_corrected.mat`, `Indian_pines_gt.mat` | 200 / 16 |
 
-`BASELINE` şimdilik yalnızca `SSARN` kabul eder. Kod CPU üzerinde çalışır; Colab'da GPU seçmek bu sürümü hızlandırmaz. İlk Julia paket kurulumu ve derlemesi uzun sürebilir. W&B giriş anahtarı deftere kaydedilmez.
+`BASELINE` şimdilik yalnızca `SSARN` kabul eder. Colab'da GPU çalışma ortamını seçin; `DEVICE="gpu"` GPU yoksa hata verir. İlk Julia/CUDA paket kurulumu ve derlemesi uzun sürebilir. W&B giriş anahtarı deftere kaydedilmez.
 
 Önceden tamamlanmış bir koşuyu yüklemek için çıktı klasörünü Drive'a kopyalayın; `RUN_TRAINING=False` ve `EXISTING_OUTPUT_DIR` değerini ayarlayın. Bu durumda Julia kurulumu ve veri dosyaları gerekmez.
 """),
@@ -44,6 +44,7 @@ EPOCHS = 300 #@param {type:"integer"}
 LEARNING_RATE = 0.001 #@param {type:"number"}
 BATCH_SIZE = 15 #@param {type:"integer"}
 TEST_BATCH_SIZE = 32 #@param {type:"integer"}
+DEVICE = "gpu" #@param ["gpu", "cpu"]
 
 DATA_SOURCE = "drive" #@param ["drive", "upload"]
 DRIVE_DATA_DIR = "/content/drive/MyDrive/AG-Meta-HSI/data" #@param {type:"string"}
@@ -59,6 +60,7 @@ BASELINE = BASELINE.strip().upper()
 assert BASELINE == "SSARN", "Desteklenen baseline: SSARN"
 assert DATASET in {"UP", "SA", "IP"}
 assert K > 0 and EPOCHS > 0 and BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0
+assert DEVICE in {"gpu", "cpu"}
 assert LEARNING_RATE > 0 and WANDB_PROJECT.strip()
 """),
     code("""#@title Drive ve proje kodu
@@ -81,6 +83,9 @@ if RUN_TRAINING:
         assert origin_url.rstrip("/").removesuffix(".git") == repo_url.removesuffix(".git"), f"Beklenmeyen GitHub deposu: {origin_url}"
         subprocess.run(["git", "-C", str(repo_dir), "pull", "--ff-only"], check=True)
     assert (repo_dir / "scripts" / "run_baseline.jl").is_file(), "Yeni baseline kodu bulunamadı; GitHub deposunu güncelleyin."
+    if DEVICE == "gpu":
+        assert "CUDA = " in (repo_dir / "Project.toml").read_text(), (
+            "GPU kodu henüz GitHub deposunda değil. Yerel değişiklikleri commit edip push edin.")
     repo_commit = subprocess.check_output(
         ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
     print("Proje:", repo_dir, "commit:", repo_commit)
@@ -132,7 +137,7 @@ if RUN_TRAINING:
         "--data", str(data_dir), "--output", str(output_dir),
         "--seed", str(SEED), "--k", str(K), "--epochs", str(EPOCHS),
         "--lr", str(LEARNING_RATE), "--batch-size", str(BATCH_SIZE),
-        "--test-batch-size", str(TEST_BATCH_SIZE),
+        "--test-batch-size", str(TEST_BATCH_SIZE), "--device", DEVICE,
     ]
     print("Çıktı klasörü:", output_dir, flush=True)
     subprocess.run(command, cwd=repo_dir, check=True)
@@ -171,12 +176,15 @@ wb_config = {
     "seed": run_config["seed"], "k": run_config.get("k", 5),
     "epochs": run_config["epochs"], "learning_rate": run_config["learning_rate"],
     "batch_size": run_config["batch_size"], "test_batch_size": run_config["test_batch_size"],
+    "device": run_config["device"],
     "train_count": run_config["train_count"], "test_count": run_config["test_count"],
     "bands": run_config["patch_size"][2], "class_count": len(run_config["classes"]),
     "split_sha256": run_config["split_sha256"], "output_dir": str(output_dir),
     "source_sha256": run_config["source_sha256"],
     "data_sha256": run_config["data_sha256"],
 }
+if "gpu_name" in run_config:
+    wb_config["gpu_name"] = run_config["gpu_name"]
 if repo_commit:
     wb_config["git_commit"] = repo_commit
 with wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY or None,

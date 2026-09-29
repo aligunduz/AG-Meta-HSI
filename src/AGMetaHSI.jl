@@ -11,6 +11,8 @@ using Serialization
 using SHA
 using TOML
 using Dates
+using CUDA
+using LuxCUDA
 
 export HSIScene, PixelSplit, load_pavia_university, load_hsi_dataset, dataset_spec, make_pixel_split,
        save_pixel_split, load_pixel_split, validate_pixel_split, extract_patch

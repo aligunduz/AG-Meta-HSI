@@ -36,16 +36,17 @@ function supervised_loss(model, ps, st, x, y)
     return loss, newst
 end
 
-function evaluate_ssarn(model, ps, st, scene, records; batch_size=32)
+function evaluate_ssarn(model, ps, st, scene, records; batch_size=32, to_device=identity)
     nclasses = maximum(scene.labels)
     cm = zeros(Int, nclasses, nclasses)
     st = Lux.testmode(st)
     for first in 1:batch_size:length(records)
         batch = records[first:min(first + batch_size - 1, length(records))]
-        logits, _ = model(patch_batch(scene, batch), ps, st)
+        logits, _ = model(to_device(patch_batch(scene, batch)), ps, st)
         all(isfinite, logits) || error("Nonfinite test logits")
+        host_logits = Array(logits)
         for (j, (_, _, truth)) in enumerate(batch)
-            cm[truth, argmax(view(logits, :, j))] += 1
+            cm[truth, argmax(view(host_logits, :, j))] += 1
         end
     end
     return classification_metrics(cm), cm
@@ -57,16 +58,16 @@ write_toml(path, data) = open(io -> TOML.print(io, data), path, "w")
 finite_leaves(x::AbstractArray) = all(isfinite, x)
 finite_leaves(x::NamedTuple) = all(finite_leaves, values(x))
 finite_leaves(::Nothing) = true
-changed_parameters(a::AbstractArray, b::AbstractArray) = count(a .!= b)
+changed_parameters(a::AbstractArray, b::AbstractArray) = count(Array(a) .!= Array(b))
 changed_parameters(a::NamedTuple, b::NamedTuple) =
     sum(changed_parameters(a[k], b[k]) for k in keys(a); init=0)
 
 """One in-memory Adam update on training records only; no evaluation or files."""
-function smoke_step(model, ps, st, rng, scene, split; learning_rate)
+function smoke_step(model, ps, st, rng, scene, split; learning_rate, to_device=identity)
     ids = randperm(rng, length(split.train))[1:15]
     records = split.train[ids]
-    x = patch_batch(scene, records)
-    y = Float32.([c == record[3] for c in 1:maximum(scene.labels), record in records])
+    x = to_device(patch_batch(scene, records))
+    y = to_device(Float32.([c == record[3] for c in 1:maximum(scene.labels), record in records]))
     st = Lux.trainmode(st)
     original_ps = deepcopy(ps) # Compare values even if an optimizer mutates storage.
     opt = Optimisers.setup(Optimisers.Adam(Float32(learning_rate)), ps)
@@ -98,13 +99,20 @@ Fixed final epoch selection; test labels enter metrics only after checkpoint sav
 """
 function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
         output_dir=nothing, seed=93, k=5, epochs=300, learning_rate=0.001,
-        batch_size=15, test_batch_size=32, train=false, smoke=false)
+        batch_size=15, test_batch_size=32, train=false, smoke=false, device=nothing)
     train && smoke && error("Choose only one mode: --smoke, --check, or --train")
     smoke && batch_size != 15 && error("Smoke requires batch_size=15")
     epochs > 0 || error("epochs must be positive")
     isfinite(learning_rate) && learning_rate > 0 || error("learning_rate must be positive and finite")
     batch_size >= 2 || error("batch_size must be at least 2")
     test_batch_size > 0 || error("test_batch_size must be positive")
+    device = isnothing(device) ? (train ? :gpu : :cpu) : device
+    device in (:cpu, :gpu) || error("device must be :cpu or :gpu")
+    if device == :gpu
+        CUDA.functional(true) || error("CUDA GPU is unavailable; select a GPU runtime")
+        CUDA.allowscalar(false)
+    end
+    to_device = device == :gpu ? Lux.gpu_device() : identity
     dataset = uppercase(dataset)
     spec = dataset_spec(dataset)
     split_path = something(split_path, joinpath("outputs", "$(lowercase(dataset))_split_seed$(seed).tsv"))
@@ -116,13 +124,15 @@ function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
     split_digest = filehash(split_path)
     rng = MersenneTwister(seed)
     model = ssarn(; bands=spec.bands, classes=spec.classes)
-    ps, st = Lux.setup(rng, model)
+    ps, st = to_device(Lux.setup(rng, model))
+    device == :gpu && !(ps.classifier.weight isa CUDA.CuArray) &&
+        error("Model parameters were not moved to the CUDA GPU")
     if smoke
-        report = smoke_step(model, ps, st, rng, scene, split; learning_rate)
+        report = smoke_step(model, ps, st, rng, scene, split; learning_rate, to_device)
         filehash(split_path) == split_digest || error("Split changed during smoke check")
         return report
     end
-    xcheck = patch_batch(scene, split.train[1:1])
+    xcheck = to_device(patch_batch(scene, split.train[1:1]))
     logits = check_ssarn(model, ps, st, xcheck; classes=spec.classes)
     println("Forward check: $(size(xcheck)) -> $(size(logits)); finite logits")
     println("Fixed split: $(length(split.train)) train, $(length(split.test)) test; SHA256=$split_digest")
@@ -142,7 +152,8 @@ function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
         "preprocessing" => "raw Float32; zero padding; no augmentation",
         "selection" => "fixed final epoch; test once after checkpoint",
         "julia_version" => string(VERSION), "started_at" => string(now()),
-        "device" => "CPU", "checkpoint" => "checkpoint.jls")
+        "device" => device == :gpu ? "CUDA" : "CPU", "checkpoint" => "checkpoint.jls")
+    device == :gpu && (config["gpu_name"] = CUDA.name(CUDA.device()))
     config["data_sha256"] = Dict(f => filehash(joinpath(data_dir, f)) for f in (spec.cube_file, spec.gt_file))
     config["source_sha256"] = Dict(f => filehash(joinpath(@__DIR__, f)) for f in ("AGMetaHSI.jl", "ssarn.jl", "supervised.jl"))
     write_toml(joinpath(output_dir, "config.toml"), config)
@@ -161,7 +172,8 @@ function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
             total = 0.0
             for first in 1:batch_size:length(order)
                 ids = order[first:min(first + batch_size - 1, length(order))]
-                x, y = xtrain[:, :, :, :, ids], ytrain[:, ids]
+                x = to_device(xtrain[:, :, :, :, ids])
+                y = to_device(ytrain[:, ids])
                 (loss, nextst), back = Zygote.pullback(p -> supervised_loss(model, p, st, x, y), ps)
                 isfinite(loss) || error("Nonfinite training loss at epoch $epoch")
                 grads = back((one(loss), nothing))[1]
@@ -176,9 +188,12 @@ function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
     end
     filehash(split_path) == split_digest || error("Split changed during training")
     # Save final parameters AND BatchNorm state before reading test predictions.
+    cpu_device = Lux.cpu_device()
     serialize(joinpath(output_dir, "checkpoint.jls"),
-        (; ps, st, optimizer_state=opt, rng, epoch=epochs, config))
-    metrics, cm = evaluate_ssarn(model, ps, st, scene, split.test; batch_size=test_batch_size)
+        (; ps=cpu_device(ps), st=cpu_device(st), optimizer_state=cpu_device(opt),
+           rng, epoch=epochs, config))
+    metrics, cm = evaluate_ssarn(model, ps, st, scene, split.test;
+        batch_size=test_batch_size, to_device=to_device)
     write_toml(joinpath(output_dir, "metrics.toml"), Dict(
         "OA" => metrics.OA, "AA" => metrics.AA, "kappa" => metrics.kappa,
         "accuracy_units" => "fraction", "epoch" => epochs, "seed" => seed,
