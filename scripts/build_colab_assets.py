@@ -24,6 +24,8 @@ Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayı
 
 `METHOD="QMTN"` mevcut SSARN ağını QLOML ikiz ağ döngüsüyle eğitir. Varsayılan 4-shot ve `epoch_transfer="none"` makaledeki Fig. 11(d) ve Algorithm 1'in harfiyen okumasına dayanır. `METHOD_CONFIG_JSON` ile `support_shots`, `ways`, `tasks_per_epoch`, `inner_steps`, `inner_lr` ve `epoch_transfer` değiştirilebilir. `LEARNING_RATE=0` seçilen yöntemin varsayılan dış öğrenme hızını kullanır (QMTN 0.002, SSARN 0.001).
 
+`METHOD="FOPROTOMAML"` aynı meta görevlerle SSARN gömmeleri ve görev başına prototip başlığı kullanır. Bu yöntemin varsayılan dış öğrenme hızı 0.002'dir.
+
 **Başlamadan önce:** Colab'da *Runtime → Change runtime type → T4 GPU* (veya başka bir NVIDIA GPU) seçin. İki `.mat` dosyasını Google Drive'daki `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter GitHub'dan klonladığı için **yerel değişiklikleriniz ancak siz commit ve push ettikten sonra Colab'a ulaşır**. Defter otomatik commit/push yapmaz.
 
 | DATASET | Veri küpü | Etiketler | Bant / sınıf |
@@ -62,15 +64,13 @@ EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
 METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
-if LEARNING_RATE == 0:
-    LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
 assert METHOD, "METHOD boş olamaz."
 import json
 METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)
 assert isinstance(METHOD_CONFIG, dict), "METHOD_CONFIG_JSON bir JSON nesnesi olmalı"
 assert DATASET in {"UP", "SA", "IP"}
 assert K > 0 and EPOCHS > 0 and BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0
-assert LEARNING_RATE > 0 and DEVICE in {"gpu", "cpu"}
+assert LEARNING_RATE >= 0 and DEVICE in {"gpu", "cpu"}
 assert DATA_SOURCE in {"drive", "upload"} and WANDB_PROJECT.strip()
 """),
     code("""#@title Google Drive ve GitHub kodu
@@ -97,9 +97,11 @@ if RUN_TRAINING:
         "PyTorch kodu GitHub deposunda yok. PyCharm'daki yerel değişiklikleri "
         "siz commit ve push ettikten sonra Colab'ı yeniden çalıştırın.")
     sys.path.insert(0, str(repo_dir))
-    from pytorch.methods import available_methods
+    from pytorch.methods import available_methods, get_method
     assert METHOD in available_methods(), (
         f"Yöntem kayıtlı değil: {METHOD}. Kullanılabilir: {available_methods()}")
+    if LEARNING_RATE == 0:
+        LEARNING_RATE = get_method(METHOD).default_learning_rate
     repo_commit = subprocess.check_output(
         ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
     print("Proje:", repo_dir, "commit:", repo_commit)

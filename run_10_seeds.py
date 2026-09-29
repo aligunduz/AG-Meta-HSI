@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from pytorch.benchmark import run_benchmark
+from pytorch.methods import get_method
 
 
 METHOD = "SSARN"
@@ -12,7 +13,7 @@ SEED_START = 90
 RUNS = 10
 K = 5
 EPOCHS = 300
-LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
+LEARNING_RATE = get_method(METHOD).default_learning_rate
 BATCH_SIZE = 15
 TEST_BATCH_SIZE = 64
 DEVICE = "gpu"

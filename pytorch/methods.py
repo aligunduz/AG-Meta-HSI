@@ -21,6 +21,7 @@ class Method:
     module: str
     function: str
     source_files: tuple[str, ...]
+    default_learning_rate: float
 
     def runner(self) -> Callable:
         return getattr(import_module(self.module), self.function)
@@ -28,9 +29,12 @@ class Method:
 
 METHODS = {
     "SSARN": Method("SSARN", "pytorch.train", "run_baseline",
-                    ("data.py", "ssarn.py", "train.py")),
+                    ("data.py", "ssarn.py", "train.py"), 0.001),
     "QMTN": Method("QMTN", "pytorch.qmtn", "run_baseline",
-                   ("data.py", "ssarn.py", "train.py", "qmtn.py")),
+                   ("data.py", "ssarn.py", "train.py", "qmtn.py"), 0.002),
+    "FOPROTOMAML": Method("FOPROTOMAML", "pytorch.foprotomaml", "run_baseline",
+                          ("data.py", "ssarn.py", "train.py", "qmtn.py",
+                           "foprotomaml.py"), 0.002),
 }
 
 

@@ -26,6 +26,8 @@ Makalenin UP Tablo 2 **SSARN** sütunu: OA **83,49±3,46**, AA **87,23±2,47**, 
 
 `METHOD="QMTN"` seçildiğinde aynı SSARN üzerinde QLOML ikiz ağ eğitimi çalışır. UP Tablo 2 QMTN referansı OA **87,24±4,18**, AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Fig. 11(d)'den çıkarılan varsayılan destek sayısı **4-shot**'tır. Algorithm 1'in harfiyen okumasıyla ikizden SSARN'a epoch aktarımı yapılmaz (`epoch_transfer="none"`); önceki aktarım yorumu `METHOD_CONFIG_JSON='{"epoch_transfer":"twin_to_model"}'` ile ayrıca denenebilir. `LEARNING_RATE=0` seçilen yöntemin varsayılanını kullanır.
 
+`METHOD="FOPROTOMAML"` seçildiğinde aynı meta görevler üzerinde SSARN gömmeleri ve görev başına yeniden kurulan prototip başlığıyla birinci dereceden Proto-MAML çalışır.
+
 Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` dosyasını `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter kodu [GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) çeker; yeni yerel kodları Colab'ın görmesi için **siz commit ve push etmelisiniz**. Defter commit/push yapmaz. W&B giriş anahtarını hücrelere yazmayın.
 """),
     code("""#@title Deney ayarları
@@ -58,13 +60,11 @@ EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
 METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
-if LEARNING_RATE == 0:
-    LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
 assert METHOD and DATASET in {"UP", "SA", "IP"}
 METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)
 assert isinstance(METHOD_CONFIG, dict), "METHOD_CONFIG_JSON bir JSON nesnesi olmalı"
 assert RUNS >= 2 and SEED_START >= 0 and K > 0 and EPOCHS > 0
-assert BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0 and LEARNING_RATE > 0
+assert BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0 and LEARNING_RATE >= 0
 assert DEVICE in {"gpu", "cpu"} and DATA_SOURCE in {"drive", "upload"}
 assert WANDB_PROJECT.strip()
 assert not EXPERIMENT_NAME or all(
@@ -95,9 +95,11 @@ assert (repo_dir / "pytorch" / "benchmark.py").is_file(), (
     "ve push ettikten sonra Colab'ı yeniden çalıştırın.")
 import sys
 sys.path.insert(0, str(repo_dir))
-from pytorch.methods import available_methods
+from pytorch.methods import available_methods, get_method
 assert METHOD in available_methods(), (
     f"Yöntem kayıtlı değil: {METHOD}. Kullanılabilir: {available_methods()}")
+if LEARNING_RATE == 0:
+    LEARNING_RATE = get_method(METHOD).default_learning_rate
 repo_commit = subprocess.check_output(
     ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
 print("Kullanılan Git commit:", repo_commit)

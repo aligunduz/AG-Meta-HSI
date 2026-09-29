@@ -60,7 +60,7 @@ def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
     baseline, dataset = baseline.upper(), dataset.upper()
     method = get_method(baseline)
     if learning_rate is None:
-        learning_rate = 0.002 if baseline == "QMTN" else 0.001
+        learning_rate = method.default_learning_rate
     method_config = {} if method_config is None else method_config
     if not isinstance(method_config, dict):
         raise ValueError("method_config must be a dictionary")

@@ -2,8 +2,8 @@
 
 Bu proje, hiperspektral görüntüler için kayıtlı PyTorch yöntemlerini aynı
 sabit split'lerde karşılaştırır. **Supervised SSARN** ve makaledeki
-**SSARN + QLOML = QMTN** ayrı baseline'lar olarak uygulanmıştır.
-`METHOD="SSARN"` veya `METHOD="QMTN"`; `DATASET` olarak `UP` (Pavia
+**SSARN + QLOML = QMTN** ve **FOPROTOMAML** ayrı baseline'lar olarak uygulanmıştır.
+`METHOD="SSARN"`, `METHOD="QMTN"` veya `METHOD="FOPROTOMAML"`; `DATASET` olarak `UP` (Pavia
 University), `SA` (Salinas) veya `IP` (Indian Pines) seçilebilir.
 
 ## PyCharm'da çalıştırma
@@ -27,6 +27,7 @@ Terminalde kontrol veya tam eğitim:
 .venv\Scripts\python -m pytorch.run_method --check --method QMTN --dataset UP --device gpu
 .venv\Scripts\python -m pytorch.run_method --smoke --method QMTN --dataset UP --device gpu
 .venv\Scripts\python -m pytorch.run_method --train --method QMTN --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_qmtn_up_seed93
+.venv\Scripts\python -m pytorch.run_method --train --method FOPROTOMAML --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_foprotomaml_up_seed93
 ```
 
 `--check` tek yamanın ileri geçişini; `--smoke` bir Adam güncellemesini
@@ -52,6 +53,7 @@ Komut satırı karşılığı:
 ```powershell
 .venv\Scripts\python -m pytorch.benchmark --method SSARN --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds90-99_k5_e300
 .venv\Scripts\python -m pytorch.benchmark --method QMTN --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_qmtn_up_seeds90-99_k5_e300
+.venv\Scripts\python -m pytorch.benchmark --method FOPROTOMAML --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_foprotomaml_up_seeds90-99_k5_e300
 ```
 
 Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,
@@ -134,6 +136,29 @@ AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Makaledeki
 görev örnekleme ve ikiz ağın eğitimdeki rolü tam belirtilmediği
 için bu bağımsız uygulama birebir yeniden üretim iddiası taşımaz.
 
+## FOPROTOMAML baseline
+
+Bu baseline, [Meta-Dataset'teki fo-Proto-MAML](https://research.google/pubs/meta-dataset-a-dataset-of-datasets-for-learning-to-learn-from-few-examples/)
+fikrini aynı QMTN görevleri ve SSARN gömmeleriyle uygular. SSARN'ın 32 boyutlu
+havuzlanmış çıktısı kullanılır; mevcut `classifier` katmanı kullanılmaz.
+Her görevde destek sınıfının prototipi `c_k`, o sınıfın gömmelerinin
+ortalamasıdır. Yeni doğrusal başlık `W_k = 2c_k`, `b_k = -||c_k||²` ile
+başlatılır; en büyük logit, en yakın Öklid prototipini seçer.
+
+QMTN'den farklı olarak her görev **meta omurganın yeni bir kopyasıyla** başlar.
+Destek kaybı bu kopyayı ve görev başlığını SGD ile uyarlar. Sorgu kaybının
+birinci dereceden gradyanı meta omurgaya aktarılır; Adam durumu görevler
+arasında korunur. İkiz ağ yoktur ve prototip başlığı meta öğrenilmez.
+
+Testte son meta omurganın kopyası alınır. Yalnızca `split.train` içindeki
+45 UP eğitim pikseliyle bütün sınıfların prototipleri kurulur; omurga ve
+başlık varsayılan olarak 3 SGD adımıyla uyarlanır. Ardından eval modunda
+test pikselleri bir kez sınıflandırılır. BatchNorm istatistikleri görev
+kopyasında train modundaki destek ve sorgu geçişleriyle güncellenir ve her
+görev sonunda meta omurgaya kopyalanır; test uyarlaması kendi kopyasında
+yapılır. `METHOD_CONFIG_JSON` veya `--method-config` ile `test_adapt_steps`
+ve `test_adapt_lr` dahil yöntem ayarları değiştirilebilir.
+
 ## Veri ve sabit ayrım
 
 Veri dosyaları `data/` klasöründe olmalıdır. Kaynak:
@@ -193,7 +218,7 @@ tarafından görülemez.
 
 ## Doğrulama
 
-`python -m unittest pytorch.test_ssarn pytorch.test_qmtn` modelin UP/SA/IP çıkış boyutlarını
+`python -m unittest pytorch.test_ssarn pytorch.test_qmtn pytorch.test_foprotomaml` modelin UP/SA/IP çıkış boyutlarını
 ve sentetik veriyle bir epoch'luk eğitimin dosyalarını, iki farklı
 split'i, ortalama/standart sapmayı ve kesinti sonrası devamı kontrol eder.
 Gerçek UP verisinde CUDA ileri geçişi, tek optimizer güncellemesi ve
