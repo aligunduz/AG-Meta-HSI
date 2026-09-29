@@ -1,9 +1,8 @@
 /data/
 /outputs/
-/Manifest.toml
-/.vscode/
-*.jld2
 *.mat
 /tmp/
 /wandb/
 __pycache__/
+/.venv/
+/.idea/

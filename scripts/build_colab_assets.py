@@ -1,12 +1,11 @@
-"""Build the Colab notebook that clones the GitHub repository."""
+"""Generate the Python/PyTorch Google Colab notebook."""
 
 import json
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / "notebooks"
-DEST.mkdir(exist_ok=True)
+NOTEBOOK = ROOT / "notebooks" / "SSARN_colab.ipynb"
 
 
 def markdown(source):
@@ -19,21 +18,21 @@ def code(source):
 
 
 cells = [
-    markdown("""# AG-Meta-HSI — Colab baseline koşusu
+    markdown("""# AG-Meta-HSI — PyTorch SSARN Colab
 
-Bu defter Julia/Lux ile **SSARN** supervised baseline'ını çalıştırır. `DATASET` için **UP**, **SA** veya **IP** seçebilirsiniz. Her sınıftan `K=5` eğitim merkezi seçilir; kalan etiketli pikseller test edilir. Koşu tamamlandıktan sonra OA, AA, kappa, sınıf doğrulukları ve eğitim kaybı W&B'ye yazılır.
+Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayıp **PyTorch SSARN supervised baseline** koşar. `BASELINE="SSARN"`; `DATASET` olarak **UP**, **SA** veya **IP** seçin. Sınıf başına `K=5` eğitim pikseli, kalan bütün etiketli pikseller test için kullanılır. Son epoch checkpoint'i kaydedildikten sonra OA, AA, kappa ve sınıf doğrulukları hesaplanıp W&B'ye yazılır.
 
-**İlk kullanım:** Defter proje kodunu [AG-Meta-HSI GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) klonlar. Seçtiğiniz veri kümesinin iki `.mat` dosyasını hazırlayın. Veri dosyalarını [UPV/EHU kaynağından](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes) indirebilirsiniz. `DATA_SOURCE="drive"` seçerseniz dosyaları `DRIVE_DATA_DIR` klasörüne koyun; `"upload"` seçerseniz yükleme penceresi açılır. Sonuçlar Google Drive'da saklanır.
+**Başlamadan önce:** Colab'da *Runtime → Change runtime type → T4 GPU* (veya başka bir NVIDIA GPU) seçin. İki `.mat` dosyasını Google Drive'daki `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter GitHub'dan klonladığı için **yerel değişiklikleriniz ancak siz commit ve push ettikten sonra Colab'a ulaşır**. Defter otomatik commit/push yapmaz.
 
-| DATASET | Gerekli dosyalar | Bant / sınıf |
-|---|---|---|
-| UP | `PaviaU.mat`, `PaviaU_gt.mat` | 103 / 9 |
-| SA | `Salinas_corrected.mat`, `Salinas_gt.mat` | 204 / 16 |
-| IP | `Indian_pines_corrected.mat`, `Indian_pines_gt.mat` | 200 / 16 |
+| DATASET | Veri küpü | Etiketler | Bant / sınıf |
+|---|---|---|---|
+| UP | `PaviaU.mat` | `PaviaU_gt.mat` | 103 / 9 |
+| SA | `Salinas_corrected.mat` | `Salinas_gt.mat` | 204 / 16 |
+| IP | `Indian_pines_corrected.mat` | `Indian_pines_gt.mat` | 200 / 16 |
 
-`BASELINE` şimdilik yalnızca `SSARN` kabul eder. Colab'da GPU çalışma ortamını seçin; `DEVICE="gpu"` GPU yoksa hata verir. İlk Julia/CUDA paket kurulumu ve derlemesi uzun sürebilir. W&B giriş anahtarı deftere kaydedilmez.
+Veri: [UPV/EHU hyperspectral scenes](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes). `SPLIT_PATH` boşken **UP/seed93/k5** için projedeki `splits/up_seed93_k5.tsv` kullanılır. Diğer kombinasyonlar için kayıtlı ayrım yoksa Python, NumPy PCG64 ile yeni bir sabit seed ayrımı üretir. Başka bir hazır TSV ayrımı kullanmak için dosyayı Drive'a kopyalayıp `SPLIT_PATH` olarak verin. Farklı rastgele sayı üreteçleri aynı seed ile farklı pikseller seçebilir.
 
-Önceden tamamlanmış bir koşuyu yüklemek için çıktı klasörünü Drive'a kopyalayın; `RUN_TRAINING=False` ve `EXISTING_OUTPUT_DIR` değerini ayarlayın. Bu durumda Julia kurulumu ve veri dosyaları gerekmez.
+`WANDB_ENTITY` kişisel hesapta boş kalabilir; bir takım workspace'ine yazacaksanız takımın entity adını girin. W&B API anahtarını deftere yazmayın; giriş penceresi açılır. Çıktılar Drive'da kalır; veri ve checkpoint W&B'ye yüklenmez.
 """),
     code("""#@title Koşu ayarları
 BASELINE = "SSARN" #@param {type:"string"}
@@ -47,27 +46,29 @@ TEST_BATCH_SIZE = 32 #@param {type:"integer"}
 DEVICE = "gpu" #@param ["gpu", "cpu"]
 
 DATA_SOURCE = "drive" #@param ["drive", "upload"]
-DRIVE_DATA_DIR = "/content/drive/MyDrive/AG-Meta-HSI/data" #@param {type:"string"}
-DRIVE_RUNS_DIR = "/content/drive/MyDrive/AG-Meta-HSI/runs" #@param {type:"string"}
+DRIVE_DATA_DIR = "/content/drive/MyDrive/DOKTORA/meta_learning/AG-Meta-HSI/data" #@param {type:"string"}
+DRIVE_RUNS_DIR = "/content/drive/MyDrive/DOKTORA/meta_learning/AG-Meta-HSI/runs" #@param {type:"string"}
+SPLIT_PATH = "" #@param {type:"string"}
 WANDB_PROJECT = "ag-meta-hsi" #@param {type:"string"}
 WANDB_ENTITY = "" #@param {type:"string"}
 
-# İsterseniz daha önce tamamlanmış bir çıktı klasörünü W&B'ye gönderebilirsiniz.
+# Tamamlanan bir PyTorch koşusunu sonradan W&B'ye göndermek için:
 RUN_TRAINING = True #@param {type:"boolean"}
 EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
 BASELINE = BASELINE.strip().upper()
-assert BASELINE == "SSARN", "Desteklenen baseline: SSARN"
+DATASET = DATASET.strip().upper()
+assert BASELINE == "SSARN", "Şimdilik yalnız SSARN baseline uygulanmıştır."
 assert DATASET in {"UP", "SA", "IP"}
 assert K > 0 and EPOCHS > 0 and BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0
-assert DEVICE in {"gpu", "cpu"}
-assert LEARNING_RATE > 0 and WANDB_PROJECT.strip()
+assert LEARNING_RATE > 0 and DEVICE in {"gpu", "cpu"}
+assert DATA_SOURCE in {"drive", "upload"} and WANDB_PROJECT.strip()
 """),
-    code("""#@title Drive ve proje kodu
+    code("""#@title Google Drive ve GitHub kodu
 from google.colab import drive, files
 from pathlib import Path
 from datetime import datetime, timezone
-import shutil, subprocess, sys, uuid
+import subprocess, sys, uuid
 
 drive.mount("/content/drive")
 repo_dir = Path("/content/AG-Meta-HSI")
@@ -78,28 +79,27 @@ if RUN_TRAINING:
         subprocess.run(["git", "clone", repo_url, str(repo_dir)], check=True)
     else:
         assert (repo_dir / ".git").is_dir(), f"{repo_dir} bir Git deposu değil"
-        origin_url = subprocess.check_output(
+        origin = subprocess.check_output(
             ["git", "-C", str(repo_dir), "remote", "get-url", "origin"], text=True).strip()
-        assert origin_url.rstrip("/").removesuffix(".git") == repo_url.removesuffix(".git"), f"Beklenmeyen GitHub deposu: {origin_url}"
+        assert origin.rstrip("/").removesuffix(".git") == repo_url.removesuffix(".git"), (
+            f"Beklenmeyen depo: {origin}")
         subprocess.run(["git", "-C", str(repo_dir), "pull", "--ff-only"], check=True)
-    assert (repo_dir / "scripts" / "run_baseline.jl").is_file(), "Yeni baseline kodu bulunamadı; GitHub deposunu güncelleyin."
-    if DEVICE == "gpu":
-        assert "CUDA = " in (repo_dir / "Project.toml").read_text(), (
-            "GPU kodu henüz GitHub deposunda değil. Yerel değişiklikleri commit edip push edin.")
+    assert (repo_dir / "pytorch" / "train.py").is_file(), (
+        "PyTorch kodu GitHub deposunda yok. PyCharm'daki yerel değişiklikleri "
+        "siz commit ve push ettikten sonra Colab'ı yeniden çalıştırın.")
     repo_commit = subprocess.check_output(
         ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
     print("Proje:", repo_dir, "commit:", repo_commit)
 """),
-    code("""#@title Julia ve W&B kurulumu
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "wandb"], check=True)
+    code("""#@title Python paketleri ve GPU kontrolü
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "scipy", "wandb"], check=True)
 if RUN_TRAINING:
-    julia = shutil.which("julia")
-    if julia is None:
-        subprocess.run(["bash", "-lc", "curl -fsSL https://install.julialang.org | sh -s -- -y"], check=True)
-        julia = str(Path.home() / ".juliaup" / "bin" / "julia")
-    assert Path(julia).exists(), "Julia kurulamadı"
-    subprocess.run([julia, "--version"], check=True)
-    subprocess.run([julia, f"--project={repo_dir}", "-e", "using Pkg; Pkg.instantiate()"], cwd=repo_dir, check=True)
+    import torch
+    print("PyTorch:", torch.__version__, "| CUDA mevcut:", torch.cuda.is_available())
+    if DEVICE == "gpu":
+        assert torch.cuda.is_available(), (
+            "GPU bulunamadı. Colab → Runtime → Change runtime type → GPU seçin.")
+        print("GPU:", torch.cuda.get_device_name(0))
 """),
     code("""#@title Seçilen veri kümesini hazırla
 required = {
@@ -114,87 +114,78 @@ if RUN_TRAINING:
         data_dir = Path("/content/hsi-data")
         data_dir.mkdir(parents=True, exist_ok=True)
         if not all((data_dir / name).is_file() for name in required):
-            print("Bu dosyaları yükleyin:", ", ".join(required))
+            print("Yüklenecek dosyalar:", ", ".join(required))
             uploaded = files.upload()
             for name in required:
                 if name in uploaded:
                     (data_dir / name).write_bytes(uploaded[name])
     missing = [name for name in required if not (data_dir / name).is_file()]
     assert not missing, f"Eksik veri dosyaları: {missing}; aranan klasör: {data_dir}"
+    if SPLIT_PATH.strip():
+        assert Path(SPLIT_PATH).expanduser().is_file(), f"Split bulunamadı: {SPLIT_PATH}"
     print(DATASET, "verisi hazır:", data_dir)
-else:
-    data_dir = None
 """),
-    code("""#@title SSARN baseline koşusu
-output_root = Path(DRIVE_RUNS_DIR).expanduser()
-output_root.mkdir(parents=True, exist_ok=True)
+    code("""#@title PyTorch SSARN baseline koşusu
 if RUN_TRAINING:
+    output_root = Path(DRIVE_RUNS_DIR).expanduser()
+    output_root.mkdir(parents=True, exist_ok=True)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
     output_dir = output_root / BASELINE.lower() / DATASET.lower() / run_id
     command = [
-        julia, f"--project={repo_dir}", str(repo_dir / "scripts" / "run_baseline.jl"),
+        sys.executable, "-m", "pytorch.train",
         "--train", "--baseline", BASELINE, "--dataset", DATASET,
         "--data", str(data_dir), "--output", str(output_dir),
         "--seed", str(SEED), "--k", str(K), "--epochs", str(EPOCHS),
         "--lr", str(LEARNING_RATE), "--batch-size", str(BATCH_SIZE),
         "--test-batch-size", str(TEST_BATCH_SIZE), "--device", DEVICE,
     ]
+    if SPLIT_PATH.strip():
+        command += ["--split", str(Path(SPLIT_PATH).expanduser())]
     print("Çıktı klasörü:", output_dir, flush=True)
     subprocess.run(command, cwd=repo_dir, check=True)
 else:
+    assert EXISTING_OUTPUT_DIR.strip(), "EXISTING_OUTPUT_DIR girin"
     output_dir = Path(EXISTING_OUTPUT_DIR).expanduser()
-    assert EXISTING_OUTPUT_DIR.strip() and output_dir.is_dir(), "Geçerli bir EXISTING_OUTPUT_DIR girin"
-assert (output_dir / "metrics.toml").is_file(), "Koşu tamamlanmadı; metrics.toml bulunamadı"
+    assert output_dir.is_dir(), f"Çıktı klasörü yok: {output_dir}"
+assert (output_dir / "metrics.json").is_file(), "Koşu tamamlanmadı; metrics.json bulunamadı"
 print("Tamamlanan koşu:", output_dir)
 """),
-    code("""#@title Tamamlanan sonuçları W&B'ye kaydet
-import csv, tomllib, wandb
+    code("""#@title Sonuçları W&B'ye kaydet
+import csv, json, hashlib, wandb
 
-with (output_dir / "metrics.toml").open("rb") as handle:
-    metrics = tomllib.load(handle)
-with (output_dir / "config.toml").open("rb") as handle:
-    run_config = tomllib.load(handle)
-with (output_dir / "training.tsv").open(newline="") as handle:
-    history = list(csv.DictReader(handle, delimiter=chr(9)))
-with (output_dir / "class_accuracy.tsv").open(newline="") as handle:
-    classes = list(csv.DictReader(handle, delimiter=chr(9)))
-with (output_dir / "confusion.tsv").open(newline="") as handle:
-    confusion = list(csv.reader(handle, delimiter=chr(9)))
+metrics = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+run_config = json.loads((output_dir / "config.json").read_text(encoding="utf-8"))
+with (output_dir / "training.tsv").open(encoding="utf-8", newline="") as handle:
+    history = list(csv.DictReader(handle, delimiter="\t"))
+with (output_dir / "class_accuracy.tsv").open(encoding="utf-8", newline="") as handle:
+    classes = list(csv.DictReader(handle, delimiter="\t"))
+with (output_dir / "confusion.tsv").open(encoding="utf-8", newline="") as handle:
+    confusion = list(csv.reader(handle, delimiter="\t"))
 
 assert history and classes and confusion
 assert int(history[-1]["epoch"]) == int(metrics["epoch"])
 assert sum(int(row["support"]) for row in classes) == int(run_config["test_count"])
 assert abs(sum(int(row["correct"]) for row in classes) /
            int(run_config["test_count"]) - metrics["OA"]) < 1e-10
-assert metrics["split_sha256"] == run_config["split_sha256"]
+split_digest = hashlib.sha256((output_dir / "split.tsv").read_bytes()).hexdigest()
+assert split_digest == metrics["split_sha256"] == run_config["split_sha256"]
 
 wandb.login()
-saved_baseline = run_config.get("baseline", "SSARN")
-saved_dataset = run_config.get("dataset", "UP")
-wb_config = {
-    "baseline": saved_baseline, "dataset": saved_dataset,
-    "seed": run_config["seed"], "k": run_config.get("k", 5),
-    "epochs": run_config["epochs"], "learning_rate": run_config["learning_rate"],
-    "batch_size": run_config["batch_size"], "test_batch_size": run_config["test_batch_size"],
-    "device": run_config["device"],
-    "train_count": run_config["train_count"], "test_count": run_config["test_count"],
-    "bands": run_config["patch_size"][2], "class_count": len(run_config["classes"]),
-    "split_sha256": run_config["split_sha256"], "output_dir": str(output_dir),
-    "source_sha256": run_config["source_sha256"],
-    "data_sha256": run_config["data_sha256"],
-}
-if "gpu_name" in run_config:
-    wb_config["gpu_name"] = run_config["gpu_name"]
+saved_baseline = run_config["baseline"]
+saved_dataset = run_config["dataset"]
+wb_config = dict(run_config)
+wb_config["output_dir"] = str(output_dir)
 if repo_commit:
     wb_config["git_commit"] = repo_commit
-with wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY or None,
+with wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY.strip() or None,
                 name=f"{saved_baseline}-{saved_dataset}-seed{run_config['seed']}-{output_dir.name}",
                 group=f"{saved_baseline}-{saved_dataset}",
                 job_type="baseline", config=wb_config) as run:
     run.define_metric("epoch")
     run.define_metric("train/cross_entropy", step_metric="epoch")
     for row in history:
-        run.log({"epoch": int(row["epoch"]), "train/cross_entropy": float(row["train_cross_entropy"])})
+        run.log({"epoch": int(row["epoch"]),
+                 "train/cross_entropy": float(row["train_cross_entropy"])})
     run.log({"test/OA": metrics["OA"], "test/AA": metrics["AA"],
              "test/kappa": metrics["kappa"]})
     run.summary.update({"test/OA_percent": 100 * metrics["OA"],
@@ -209,13 +200,16 @@ with wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY or None,
     run.log({"test/class_accuracy_table": wandb.Table(
         columns=["class", "support", "correct", "accuracy"], data=class_rows)})
     run.log({"test/confusion_table": wandb.Table(
-        columns=confusion[0], data=[[int(x) for x in row] for row in confusion[1:]])})
+        columns=confusion[0], data=[[int(value) for value in row] for row in confusion[1:]])})
     wandb_url = run.url
 print("W&B koşusu:", wandb_url)
 print("OA: {:.2%} | AA: {:.2%} | kappa: {:.4f}".format(
     metrics["OA"], metrics["AA"], metrics["kappa"]))
 """),
 ]
+
+for index, cell in enumerate(cells, start=1):
+    cell["id"] = f"ssarn-{index}"
 
 notebook = {
     "cells": cells,
@@ -227,7 +221,6 @@ notebook = {
     "nbformat": 4,
     "nbformat_minor": 5,
 }
-(DEST / "SSARN_colab.ipynb").write_text(
-    json.dumps(notebook, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-
-print(DEST / "SSARN_colab.ipynb")
+NOTEBOOK.parent.mkdir(parents=True, exist_ok=True)
+NOTEBOOK.write_text(json.dumps(notebook, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+print(NOTEBOOK)
