@@ -159,7 +159,7 @@ for name in ("OA", "AA", "kappa"):
 print("Makale Tablo 2 SSARN: OA 83.49±3.46 | AA 87.23±2.47 | κ×100 78.74±4.25")
 print("Ayrıntılı dosyalar:", experiment_dir)
 """),
-    code("""#@title Per-seed sonuçları ve 10 koşu özetini W&B'ye kaydet
+    code("""#@title 10 koşu özetini tek W&B koşusuna kaydet
 if LOG_WANDB:
     sys.path.insert(0, str(repo_dir))
     from pytorch.wandb_benchmark import log_benchmark

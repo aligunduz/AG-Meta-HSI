@@ -1,4 +1,4 @@
-"""Upload completed per-seed runs and their aggregate to W&B."""
+"""Upload one aggregate W&B run for a completed benchmark."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import math
 import statistics
 from pathlib import Path
 
-from .wandb_log import load_results, log_output
+from .wandb_log import load_results
 
 
 def load_benchmark(directory: str | Path) -> tuple[dict, dict, list[dict]]:
@@ -46,21 +46,10 @@ def log_benchmark(directory: str | Path, *, project: str = "ag-meta-hsi",
 
     root = Path(directory)
     summary, settings, rows = load_benchmark(root)
-    wandb.login()
-    for row in rows:
-        run_dir = root / row["output_dir"]
-        marker = run_dir / "wandb_url.txt"
-        if marker.is_file() and marker.read_text(encoding="utf-8").strip():
-            print(f"Already logged seed {row['seed']}: {marker.read_text(encoding='utf-8').strip()}")
-            continue
-        url = log_output(run_dir, project=project, entity=entity, login=False)
-        if url:
-            marker.write_text(url + "\n", encoding="utf-8")
-        print(f"Logged seed {row['seed']}: {url}", flush=True)
-
     marker = root / "wandb_summary_url.txt"
     if marker.is_file() and marker.read_text(encoding="utf-8").strip():
         return marker.read_text(encoding="utf-8").strip()
+    wandb.login()
     with wandb.init(
         project=project, entity=entity or None,
         name=f"{settings['baseline']}-{settings['dataset']}-{summary['n']}runs-"

@@ -56,11 +56,12 @@ Komut satırı karşılığı:
 ortalama ve **örnek standart sapması (ddof=1)** hem 0–1 hem yüzde
 ölçeğinde saklanır. Aynı ayarlarla yeniden çalıştırıldığında bitmiş
 seed'ler doğrulanıp atlanır; yarıda kalan seed için yeni attempt açılır.
-`LOG_WANDB=True` her seed'i ve toplu özeti W&B'ye yollar.
+`LOG_WANDB=True` yalnızca toplu özeti tek bir W&B koşusuna yollar;
+seed bazındaki sayılar o koşunun tablosunda bulunur.
 Eğitim tamamlandıktan sonra W&B yüklemesini ayrıca tekrarlamak için
 `.venv\Scripts\python -m pytorch.wandb_benchmark --output outputs/<deney_klasörü>`
-komutunu kullanın. Başarıyla yüklenmiş seed'ler işaretlenir ve tekrar
-gönderilmez.
+komutunu kullanın. Yüklenen özetin bağlantısı kaydedilir; aynı deney
+yeniden çalıştırıldığında yeni bir W&B koşusu açılmaz.
 
 Colab'da [`SSARN_10runs_colab.ipynb`](notebooks/SSARN_10runs_colab.ipynb)
 kullanın. GitHub'dan kodları çeker ve çıktıları Drive'da tutar.
