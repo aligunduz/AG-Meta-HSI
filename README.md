@@ -66,6 +66,47 @@ Başka geçerli bir split yolu vermek farklı bir deneydir; dosyanın SHA256 de�
 kaydedilir. Var olan çıktı dizinine yazmak reddedilir. CPU/Float32 kullanılır;
 GPU desteği henüz yoktur. İlk çalıştırmada Julia derlemesi zaman alabilir.
 
+### Colab, veri kümesi seçimi ve W&B
+
+[`notebooks/SSARN_colab.ipynb`](notebooks/SSARN_colab.ipynb) dosyasını Google
+Colab'da açın. Henüz GitHub'a gönderilmemiş bu kodu kullanmak için defterin
+istediği [`notebooks/AG-Meta-HSI-colab.zip`](notebooks/AG-Meta-HSI-colab.zip)
+dosyasını yükleyin. ZIP, yalnızca Julia proje ve kaynak dosyalarını içerir;
+veri ve eski deney sonuçları içermez. Kaynak kod değişince ZIP'i
+`python scripts/build_colab_assets.py` ile yeniden üretin. Kod GitHub'a
+gönderildikten sonra defterde `REPO_SOURCE="github"` da seçilebilir.
+
+Defterde `BASELINE="SSARN"`, `DATASET="UP"`, `"SA"` veya `"IP"` ayarlayın.
+Şimdilik yalnızca SSARN uygulanmıştır; başka baseline adı açık hata verir.
+Veri dosyalarını Google Drive'daki `AG-Meta-HSI/data` klasörüne yerleştirin
+veya `DATA_SOURCE="upload"` seçin:
+
+| Seçim | Veri küpü | Etiket dosyası | Bant / sınıf |
+|---|---|---|---|
+| `UP` | `PaviaU.mat` | `PaviaU_gt.mat` | 103 / 9 |
+| `SA` | `Salinas_corrected.mat` | `Salinas_gt.mat` | 204 / 16 |
+| `IP` | `Indian_pines_corrected.mat` | `Indian_pines_gt.mat` | 200 / 16 |
+
+Kaynak: [UPV/EHU veri sayfası](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes).
+İlk koşuda her sınıftan `k=5` piksel için seeded split oluşturulur; mevcut
+split asla değiştirilmez. Split kopyası, SHA256 ve veri SHA256 değerleri her
+koşunun çıktı klasöründe saklanır. Çıktı klasörü Drive'da benzersiz bir ad
+alır. Defter koşu **başarıyla tamamlandıktan sonra** W&B'ye giriş ister ve
+epoch başına eğitim kaybını, OA/AA/kappa'yı, sınıf doğruluklarını ve confusion
+tablosunu kaydeder. `.mat` verileri ile checkpoint W&B'ye yüklenmez.
+Var olan bir koşuyu yalnızca W&B'ye göndermek için çıktı klasörünü Drive'a
+kopyalayıp `RUN_TRAINING=false` ve `EXISTING_OUTPUT_DIR` değerini ayarlayın.
+
+Julia CLI ile aynı seçimi yapmak için örnek:
+
+```powershell
+julia --project=. scripts/run_baseline.jl --baseline SSARN --dataset SA --train --data data --seed 93 --k 5 --epochs 300 --lr 0.001 --batch-size 15 --test-batch-size 32 --output outputs/ssarn_sa_seed93
+```
+
+Bu çoklu veri kümesi yolu SSARN supervised baseline'ıdır; QMTN meta-öğrenme
+veya GPU eğitimi içermez. Makaledeki on koşulu deneyle karşılaştırma için
+farklı seed'leri ayrı ayrı çalıştırın ve dağılımı ayrıca hesaplayın.
+
 ## Sabit veri ve değerlendirme protokolü
 
 - Sınıf başına 5 eğitim merkezi: toplam 45. Geri kalan bütün etiketli merkezler

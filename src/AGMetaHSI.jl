@@ -12,7 +12,7 @@ using SHA
 using TOML
 using Dates
 
-export HSIScene, PixelSplit, load_pavia_university, make_pixel_split,
+export HSIScene, PixelSplit, load_pavia_university, load_hsi_dataset, dataset_spec, make_pixel_split,
        save_pixel_split, load_pixel_split, validate_pixel_split, extract_patch
 
 """One hyperspectral cube (height, width, bands) and its center-pixel labels."""
@@ -35,21 +35,43 @@ struct PixelSplit
     test::Vector{NTuple{3,Int}}
 end
 
-function load_pavia_university(data_dir::AbstractString)
-    cube_file = joinpath(data_dir, "PaviaU.mat")
-    gt_file = joinpath(data_dir, "PaviaU_gt.mat")
+const DATASET_SPECS = Dict(
+    "UP" => (cube_file="PaviaU.mat", gt_file="PaviaU_gt.mat",
+             cube_key="paviaU", gt_key="paviaU_gt", bands=103, classes=9),
+    "SA" => (cube_file="Salinas_corrected.mat", gt_file="Salinas_gt.mat",
+             cube_key="salinas_corrected", gt_key="salinas_gt", bands=204, classes=16),
+    "IP" => (cube_file="Indian_pines_corrected.mat", gt_file="Indian_pines_gt.mat",
+             cube_key="indian_pines_corrected", gt_key="indian_pines_gt", bands=200, classes=16),
+)
+
+function dataset_spec(dataset::AbstractString)
+    key = uppercase(dataset)
+    haskey(DATASET_SPECS, key) || throw(ArgumentError("Unknown dataset $dataset; choose UP, SA, or IP"))
+    return DATASET_SPECS[key]
+end
+
+function load_hsi_dataset(dataset::AbstractString, data_dir::AbstractString)
+    spec = dataset_spec(dataset)
+    cube_file = joinpath(data_dir, spec.cube_file)
+    gt_file = joinpath(data_dir, spec.gt_file)
     isfile(cube_file) || throw(ArgumentError("Missing $cube_file"))
     isfile(gt_file) || throw(ArgumentError("Missing $gt_file"))
     cube_data = matread(cube_file)
     label_data = matread(gt_file)
-    haskey(cube_data, "paviaU") || throw(ArgumentError("paviaU variable missing in $cube_file"))
-    haskey(label_data, "paviaU_gt") || throw(ArgumentError("paviaU_gt variable missing in $gt_file"))
-    cube = cube_data["paviaU"]
-    labels = label_data["paviaU_gt"]
+    haskey(cube_data, spec.cube_key) || throw(ArgumentError("$(spec.cube_key) variable missing in $cube_file"))
+    haskey(label_data, spec.gt_key) || throw(ArgumentError("$(spec.gt_key) variable missing in $gt_file"))
+    cube = cube_data[spec.cube_key]
+    labels = label_data[spec.gt_key]
     ndims(cube) == 3 || throw(ArgumentError("Expected height × width × bands cube"))
     ndims(labels) == 2 || throw(ArgumentError("Expected 2-D ground truth"))
-    return HSIScene(Float32.(cube), Int.(labels))
+    scene = HSIScene(Float32.(cube), Int.(labels))
+    size(scene.cube, 3) == spec.bands || throw(ArgumentError("Expected $(spec.bands) bands for $dataset"))
+    sort(filter(!iszero, unique(scene.labels))) == collect(1:spec.classes) ||
+        throw(ArgumentError("Expected class IDs 1:$(spec.classes) for $dataset"))
+    return scene
 end
+
+load_pavia_university(data_dir::AbstractString) = load_hsi_dataset("UP", data_dir)
 
 function make_pixel_split(labels::Matrix{Int}; k::Int=5, seed::Int=93)
     k > 0 || throw(ArgumentError("k must be positive"))

@@ -27,10 +27,17 @@ end
 leaky(x) = NNlib.leakyrelu.(x, 0.01f0)
 bn(c) = Lux.BatchNorm(c; epsilon=1.0f-5, momentum=0.1f0)
 
-"""Figure-2-based SSARN; H,W,B,1,N input and nine raw logits per sample.
+"""Figure-2-based SSARN; H,W,B,1,N input and one raw logit per class.
 Unspecified paper details are fixed explicitly in README.md.
 """
-function ssarn()
+function ssarn(; bands::Int=103, classes::Int=9)
+    bands > 0 || throw(ArgumentError("SSARN needs a positive input band count"))
+    classes >= 2 || throw(ArgumentError("SSARN needs at least two classes"))
+    spectral_width = bands
+    for _ in 1:3
+        spectral_width = fld(spectral_width - 7, 2) + 1
+    end
+    spectral_width >= 1 || throw(ArgumentError("Too few bands for three spectral convolutions"))
     stem(cin) = Lux.Chain(Lux.Conv((1, 1, 7), cin => 32; stride=(1, 1, 2)),
                          bn(32), Lux.WrappedFunction(leaky))
     spectral() = Lux.Chain(Lux.Conv((1, 1, 7), 32 => 32; pad=(0, 0, 3)),
@@ -45,27 +52,29 @@ function ssarn()
         stem=Lux.Chain(stem(1), stem(32), stem(32)),
         spectral_residual=sr,
         collapse=Lux.Chain(Lux.WrappedFunction(leaky),
-            Lux.Conv((3, 3, 8), 32 => 32), Lux.WrappedFunction(leaky), bn(32),
+            Lux.Conv((3, 3, spectral_width), 32 => 32), Lux.WrappedFunction(leaky), bn(32),
             Lux.WrappedFunction(x -> dropdims(x; dims=3))),
         spatial_residual=sar,
         pool=Lux.Chain(Lux.WrappedFunction(leaky),
             Lux.WrappedFunction(x -> reshape(mean(x; dims=(1, 2)), 32, size(x, 4)))),
-        classifier=Lux.Dense(32 => 9))
+        classifier=Lux.Dense(32 => classes))
 end
 
 function patch_batch(scene::HSIScene, records)
-    size(scene.cube, 3) == 103 || throw(ArgumentError("SSARN expects 103 UP bands"))
-    x = Array{Float32}(undef, 9, 9, 103, 1, length(records))
+    bands = size(scene.cube, 3)
+    x = Array{Float32}(undef, 9, 9, bands, 1, length(records))
     for (i, (row, col, _)) in enumerate(records)
         x[:, :, :, 1, i] = extract_patch(scene, row, col; patch_size=9)
     end
     return x
 end
 
-function check_ssarn(model, ps, st, x)
-    size(x) == (9, 9, 103, 1, 1) || throw(ArgumentError("Expected one 9x9x103 patch"))
+function check_ssarn(model, ps, st, x; classes::Int=9)
+    ndims(x) == 5 && size(x, 1) == 9 && size(x, 2) == 9 &&
+        size(x, 4) == 1 && size(x, 5) == 1 ||
+        throw(ArgumentError("Expected one 9x9xB patch"))
     logits, _ = model(x, ps, Lux.testmode(deepcopy(st)))
-    size(logits) == (9, 1) || error("Expected nine logits, got $(size(logits))")
+    size(logits) == (classes, 1) || error("Expected $classes logits, got $(size(logits))")
     all(isfinite, logits) || error("Nonfinite logits")
     return logits
 end

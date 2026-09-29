@@ -1,10 +1,16 @@
-export classification_metrics, run_supervised, supervised_loss, validate_up_protocol
+export classification_metrics, run_supervised, supervised_loss, validate_up_protocol, validate_dataset_protocol
 
 function validate_up_protocol(scene, split)
-    size(scene.cube, 3) == 103 || error("UP must have 103 bands")
     split.seed == 93 && split.k == 5 || error("Expected fixed seed93/k5 split")
-    sort(unique(filter(!iszero, vec(scene.labels)))) == collect(1:9) ||
-        error("Expected class IDs 1:9")
+    return validate_dataset_protocol(scene, split, "UP", 93, 5)
+end
+
+function validate_dataset_protocol(scene, split, dataset, seed, k)
+    spec = dataset_spec(dataset)
+    size(scene.cube, 3) == spec.bands || error("$dataset must have $(spec.bands) bands")
+    split.seed == seed && split.k == k || error("Split metadata does not match seed=$seed/k=$k")
+    sort(unique(filter(!iszero, vec(scene.labels)))) == collect(1:spec.classes) ||
+        error("Expected class IDs 1:$(spec.classes)")
     validate_pixel_split(scene.labels, split)
     return true
 end
@@ -31,7 +37,8 @@ function supervised_loss(model, ps, st, x, y)
 end
 
 function evaluate_ssarn(model, ps, st, scene, records; batch_size=32)
-    cm = zeros(Int, 9, 9)
+    nclasses = maximum(scene.labels)
+    cm = zeros(Int, nclasses, nclasses)
     st = Lux.testmode(st)
     for first in 1:batch_size:length(records)
         batch = records[first:min(first + batch_size - 1, length(records))]
@@ -59,7 +66,7 @@ function smoke_step(model, ps, st, rng, scene, split; learning_rate)
     ids = randperm(rng, length(split.train))[1:15]
     records = split.train[ids]
     x = patch_batch(scene, records)
-    y = Float32.([c == record[3] for c in 1:9, record in records])
+    y = Float32.([c == record[3] for c in 1:maximum(scene.labels), record in records])
     st = Lux.trainmode(st)
     original_ps = deepcopy(ps) # Compare values even if an optimizer mutates storage.
     opt = Optimisers.setup(Optimisers.Adam(Float32(learning_rate)), ps)
@@ -89,8 +96,8 @@ end
 """Check-only by default. Training requires an explicit train=true.
 Fixed final epoch selection; test labels enter metrics only after checkpoint save.
 """
-function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.tsv",
-        output_dir="outputs/ssarn_seed93", seed=93, epochs=300, learning_rate=0.001,
+function run_supervised(; dataset="UP", data_dir="data", split_path=nothing,
+        output_dir=nothing, seed=93, k=5, epochs=300, learning_rate=0.001,
         batch_size=15, test_batch_size=32, train=false, smoke=false)
     train && smoke && error("Choose only one mode: --smoke, --check, or --train")
     smoke && batch_size != 15 && error("Smoke requires batch_size=15")
@@ -98,12 +105,17 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
     isfinite(learning_rate) && learning_rate > 0 || error("learning_rate must be positive and finite")
     batch_size >= 2 || error("batch_size must be at least 2")
     test_batch_size > 0 || error("test_batch_size must be positive")
-    scene = load_pavia_university(data_dir)
+    dataset = uppercase(dataset)
+    spec = dataset_spec(dataset)
+    split_path = something(split_path, joinpath("outputs", "$(lowercase(dataset))_split_seed$(seed).tsv"))
+    default_output = dataset == "UP" ? "ssarn_seed$(seed)" : "ssarn_$(lowercase(dataset))_seed$(seed)"
+    output_dir = something(output_dir, joinpath("outputs", default_output))
+    scene = load_hsi_dataset(dataset, data_dir)
     split = load_pixel_split(split_path) # Never regenerate or rewrite the split.
-    validate_up_protocol(scene, split)
+    validate_dataset_protocol(scene, split, dataset, seed, k)
     split_digest = filehash(split_path)
     rng = MersenneTwister(seed)
-    model = ssarn()
+    model = ssarn(; bands=spec.bands, classes=spec.classes)
     ps, st = Lux.setup(rng, model)
     if smoke
         report = smoke_step(model, ps, st, rng, scene, split; learning_rate)
@@ -111,7 +123,7 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
         return report
     end
     xcheck = patch_batch(scene, split.train[1:1])
-    logits = check_ssarn(model, ps, st, xcheck)
+    logits = check_ssarn(model, ps, st, xcheck; classes=spec.classes)
     println("Forward check: $(size(xcheck)) -> $(size(logits)); finite logits")
     println("Fixed split: $(length(split.train)) train, $(length(split.test)) test; SHA256=$split_digest")
     train || return (; logits, split_sha256=split_digest)
@@ -120,17 +132,18 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
     ispath(output_dir) && error("Output directory already exists: $output_dir")
     mkpath(output_dir)
     root = dirname(@__DIR__)
-    config = Dict("model" => "SSARN-Fig2-assumptions-v1", "seed" => seed,
+    config = Dict("model" => "SSARN-Fig2-assumptions-v1", "baseline" => "SSARN",
+        "dataset" => dataset, "seed" => seed, "k" => k,
         "split_seed" => split.seed, "split_sha256" => split_digest,
         "epochs" => epochs, "learning_rate" => learning_rate, "optimizer" => "Adam",
         "batch_size" => batch_size, "test_batch_size" => test_batch_size,
         "train_count" => length(split.train), "test_count" => length(split.test),
-        "patch_size" => [9, 9, 103], "classes" => collect(1:9),
+        "patch_size" => [9, 9, spec.bands], "classes" => collect(1:spec.classes),
         "preprocessing" => "raw Float32; zero padding; no augmentation",
         "selection" => "fixed final epoch; test once after checkpoint",
         "julia_version" => string(VERSION), "started_at" => string(now()),
         "device" => "CPU", "checkpoint" => "checkpoint.jls")
-    config["data_sha256"] = Dict(f => filehash(joinpath(data_dir, f)) for f in ("PaviaU.mat", "PaviaU_gt.mat"))
+    config["data_sha256"] = Dict(f => filehash(joinpath(data_dir, f)) for f in (spec.cube_file, spec.gt_file))
     config["source_sha256"] = Dict(f => filehash(joinpath(@__DIR__, f)) for f in ("AGMetaHSI.jl", "ssarn.jl", "supervised.jl"))
     write_toml(joinpath(output_dir, "config.toml"), config)
     cp(split_path, joinpath(output_dir, "split.tsv"))
@@ -138,7 +151,7 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
         isfile(joinpath(root, f)) && cp(joinpath(root, f), joinpath(output_dir, f))
     end
     xtrain = patch_batch(scene, split.train)
-    ytrain = Float32.([c == record[3] for c in 1:9, record in split.train])
+    ytrain = Float32.([c == record[3] for c in 1:spec.classes, record in split.train])
     opt = Optimisers.setup(Optimisers.Adam(Float32(learning_rate)), ps)
     st = Lux.trainmode(st)
     open(joinpath(output_dir, "training.tsv"), "w") do io
@@ -173,13 +186,13 @@ function run_supervised(; data_dir="data", split_path="outputs/up_split_seed93.t
         "split_sha256" => split_digest, "finished_at" => string(now())))
     open(joinpath(output_dir, "class_accuracy.tsv"), "w") do io
         println(io, "class\tsupport\tcorrect\taccuracy")
-        for c in 1:9
+        for c in 1:spec.classes
             println(io, "$c\t$(metrics.support[c])\t$(cm[c,c])\t$(metrics.per_class[c])")
         end
     end
     open(joinpath(output_dir, "confusion.tsv"), "w") do io
-        println(io, "truth/prediction\t", join(1:9, '\t'))
-        for c in 1:9
+        println(io, "truth/prediction\t", join(1:spec.classes, '\t'))
+        for c in 1:spec.classes
             println(io, c, '\t', join(cm[c, :], '\t'))
         end
     end
