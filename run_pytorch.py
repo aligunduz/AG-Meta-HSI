@@ -12,7 +12,7 @@ DATASET = "UP"  # UP, SA, IP
 SEED = 93
 K = 5
 EPOCHS = 300
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
 BATCH_SIZE = 15
 TEST_BATCH_SIZE = 32
 DEVICE = "gpu"  # GPU required by default; use "cpu" only when requested.

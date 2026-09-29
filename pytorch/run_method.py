@@ -23,7 +23,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=93)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=300)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=None,
+                        help="Outer learning rate (default: QMTN 0.002, SSARN 0.001)")
     parser.add_argument("--batch-size", type=int, default=15)
     parser.add_argument("--test-batch-size", type=int, default=32)
     parser.add_argument("--device", choices=("gpu", "cpu"), default="gpu")
@@ -35,7 +36,9 @@ def main() -> None:
     method.runner()(
         baseline=method.name, dataset=args.dataset, data_dir=args.data,
         split_path=args.split, output_dir=args.output, seed=args.seed, k=args.k,
-        epochs=args.epochs, learning_rate=args.lr, batch_size=args.batch_size,
+        epochs=args.epochs,
+        learning_rate=args.lr if args.lr is not None else (0.002 if method.name == "QMTN" else 0.001),
+        batch_size=args.batch_size,
         test_batch_size=args.test_batch_size, device=args.device,
         mode="train" if args.train else "smoke" if args.smoke else "check",
         method_config=method_config)

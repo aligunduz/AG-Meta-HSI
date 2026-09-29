@@ -29,6 +29,8 @@ class Method:
 METHODS = {
     "SSARN": Method("SSARN", "pytorch.train", "run_baseline",
                     ("data.py", "ssarn.py", "train.py")),
+    "QMTN": Method("QMTN", "pytorch.qmtn", "run_baseline",
+                   ("data.py", "ssarn.py", "train.py", "qmtn.py")),
 }
 
 

@@ -1,10 +1,10 @@
 # AG-Meta-HSI — PyTorch yöntem karşılaştırması
 
 Bu proje, hiperspektral görüntüler için kayıtlı PyTorch yöntemlerini aynı
-sabit split'lerde karşılaştırır. Şu anda **supervised SSARN** uygulanmıştır.
-`METHOD="SSARN"`; `DATASET` olarak `UP` (Pavia University),
-`SA` (Salinas) veya `IP` (Indian Pines) seçilebilir. QLOML episodic
-meta-öğrenme uygulanmaz.
+sabit split'lerde karşılaştırır. **Supervised SSARN** ve makaledeki
+**SSARN + QLOML = QMTN** ayrı baseline'lar olarak uygulanmıştır.
+`METHOD="SSARN"` veya `METHOD="QMTN"`; `DATASET` olarak `UP` (Pavia
+University), `SA` (Salinas) veya `IP` (Indian Pines) seçilebilir.
 
 ## PyCharm'da çalıştırma
 
@@ -24,6 +24,9 @@ Terminalde kontrol veya tam eğitim:
 .venv\Scripts\python -m pytorch.run_method --check --method SSARN --dataset UP --device gpu
 .venv\Scripts\python -m pytorch.run_method --smoke --method SSARN --dataset UP --device gpu
 .venv\Scripts\python -m pytorch.run_method --train --method SSARN --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_ssarn_up_seed93
+.venv\Scripts\python -m pytorch.run_method --check --method QMTN --dataset UP --device gpu
+.venv\Scripts\python -m pytorch.run_method --smoke --method QMTN --dataset UP --device gpu
+.venv\Scripts\python -m pytorch.run_method --train --method QMTN --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_qmtn_up_seed93
 ```
 
 `--check` tek yamanın ileri geçişini; `--smoke` bir Adam güncellemesini
@@ -48,6 +51,7 @@ Komut satırı karşılığı:
 
 ```powershell
 .venv\Scripts\python -m pytorch.benchmark --method SSARN --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds90-99_k5_e300
+.venv\Scripts\python -m pytorch.benchmark --method QMTN --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_qmtn_up_seeds90-99_k5_e300
 ```
 
 Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,
@@ -67,7 +71,7 @@ Eğitim tamamlandıktan sonra W&B yüklemesini ayrıca tekrarlamak için
 komutunu kullanın. Yüklenen özetin bağlantısı kaydedilir; aynı deney
 yeniden çalıştırıldığında mevcut W&B koşusu güncellenir.
 
-Colab'da [`SSARN_10runs_colab.ipynb`](notebooks/SSARN_10runs_colab.ipynb)
+Colab'da [`AG-Meta-HSI.ipynb`](notebooks/AG-Meta-HSI.ipynb)
 kullanın. `METHOD` alanı kayıtlı yöntemler arasında seçim yapar; defterin
 kodunu her yöntem için değiştirmeye gerek yoktur. GitHub'dan kodları çeker ve
 çıktıları Drive'da tutar.
@@ -87,7 +91,7 @@ Yeni yöntem eklemek için yönteme ait çalıştırıcıyı yazıp
 `source_files` listesi koşunun `config.json` dosyasındaki `source_sha256`
 anahtarlarıyla eşleşmelidir. Yeni yöntem kaydedilince aynı defterde yalnız
 `METHOD` değeri ve gerekiyorsa `METHOD_CONFIG_JSON` içindeki yöntem ayarları
-değiştirilir. Şu anda kayıtlı tek yöntem SSARN'dır.
+değiştirilir.
 
 Zhu ve arkadaşlarının *Pattern Recognition* 172 (2026) makalesinde
 Tablo 2'nin **SSARN** sütunu UP için OA **83,49±3,46**,
@@ -97,6 +101,35 @@ kullanır. Buradaki PyTorch SSARN bağımsız bir uygulamadır;
 ön işleme, ağırlık başlatma ve optimizasyon ayrıntılarının makale
 koduyla aynı olduğu doğrulanmadığı için 10 koşu özeti
 **referans karşılaştırmasıdır**, birebir yeniden üretim değildir.
+
+## QMTN / QLOML baseline
+
+QMTN mevcut SSARN ağını kullanır; yalnızca eğitim yöntemi farklıdır.
+Her meta görevde eğitim split'inden rastgele sınıflar seçilir. Sınıf başına
+5 eğitim örneğinin bir kısmı destek, kalanı sorgu kümesidir. 16 görevlik
+havuz bir kez kurulur; her epoch'ta görev sırası karıştırılır. Destek
+kaybıyla asıl SSARN, SGD ile üç kez güncellenir. Uyarlanmış SSARN'da
+hesaplanan sorgu kaybının gradyanı, ayrı ikiz ağın Adam güncellemesine
+aktarılır; ikinci derece türev hesaplanmaz. İkiz ağın parametreleri sonraki
+epoch başında SSARN'a aktarılır. Son epoch'taki **asıl SSARN** test edilir;
+ikiz ağın durumu da checkpoint'te saklanır. Test pikselleri meta görevlere
+girmez. `QMTN-DA` gürültü artırımı bu baseline'a dahil değildir.
+
+Makalenin açık ayarları varsayılandır: UP için 5-way, IP/SA için 8-way,
+epoch başına 16 görev, 3 destek güncellemesi, iç SGD öğrenme hızı 0.01,
+dış Adam öğrenme hızı 0.002 ve 300 epoch. Makale görev başına destek
+örneği sayısını 1–4 arasında inceler ama Tablo 2 için hangisini
+kullandığını açıkça belirtmez. Bu uygulama **3-shot** varsayar;
+`--method-config '{"support_shots":2}'` ile değiştirilebilir. Aynı JSON
+içinde `ways`, `tasks_per_epoch`, `inner_steps`, `inner_lr` ayarlanabilir.
+`--lr` dış Adam hızıdır; yöntem belirtilince varsayılan otomatik seçilir.
+`batch_size` QMTN'de arayüz uyumluluğu için tutulur; görevlerin destek ve
+sorgu kümeleri tam olarak işlenir.
+
+Makalenin UP Tablo 2 **QMTN** referansı OA **87,24±4,18**,
+AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Makaledeki
+görev örnekleme ve ikiz ağın buffer aktarımı ayrıntıları tam belirtilmediği
+için bu bağımsız uygulama birebir yeniden üretim iddiası taşımaz.
 
 ## Veri ve sabit ayrım
 
@@ -157,7 +190,7 @@ tarafından görülemez.
 
 ## Doğrulama
 
-`python -m unittest pytorch.test_ssarn` modelin UP/SA/IP çıkış boyutlarını
+`python -m unittest pytorch.test_ssarn pytorch.test_qmtn` modelin UP/SA/IP çıkış boyutlarını
 ve sentetik veriyle bir epoch'luk eğitimin dosyalarını, iki farklı
 split'i, ortalama/standart sapmayı ve kesinti sonrası devamı kontrol eder.
 Gerçek UP verisinde CUDA ileri geçişi, tek optimizer güncellemesi ve

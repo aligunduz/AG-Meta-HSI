@@ -54,11 +54,13 @@ def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
                   data_dir: str | Path = "data", output_dir: str | Path | None = None,
                   split_dir: str | Path | None = None,
                   seed_start: int = 90, runs: int = 10, k: int = 5,
-                  epochs: int = 300, learning_rate: float = 0.001,
+                  epochs: int = 300, learning_rate: float | None = None,
                   batch_size: int = 15, test_batch_size: int = 32,
                   device: str = "gpu", method_config: dict | None = None) -> dict:
     baseline, dataset = baseline.upper(), dataset.upper()
     method = get_method(baseline)
+    if learning_rate is None:
+        learning_rate = 0.002 if baseline == "QMTN" else 0.001
     method_config = {} if method_config is None else method_config
     if not isinstance(method_config, dict):
         raise ValueError("method_config must be a dictionary")
@@ -216,7 +218,8 @@ def main() -> None:
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=300)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=None,
+                        help="Outer learning rate (default: QMTN 0.002, SSARN 0.001)")
     parser.add_argument("--batch-size", type=int, default=15)
     parser.add_argument("--test-batch-size", type=int, default=32)
     parser.add_argument("--device", choices=("gpu", "cpu"), default="gpu")

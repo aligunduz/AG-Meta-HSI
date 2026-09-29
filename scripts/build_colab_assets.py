@@ -22,6 +22,8 @@ cells = [
 
 Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayıp `METHOD` ile seçilen kayıtlı PyTorch yöntemini koşar. `DATASET` olarak **UP**, **SA** veya **IP** seçin. Sınıf başına `K=5` eğitim pikseli, kalan bütün etiketli pikseller test için kullanılır. Son epoch checkpoint'i kaydedildikten sonra OA, AA, kappa ve sınıf doğrulukları hesaplanıp W&B'ye yazılır. Yeni bir yöntem kodu kayıt sistemine eklendiğinde defter değiştirilmez.
 
+`METHOD="QMTN"` mevcut SSARN ağını QLOML ikiz ağ döngüsüyle eğitir. `METHOD_CONFIG_JSON` ile `support_shots`, `ways`, `tasks_per_epoch`, `inner_steps` ve `inner_lr` değiştirilebilir. `LEARNING_RATE=0` seçilen yöntemin varsayılan dış öğrenme hızını kullanır (QMTN 0.002, SSARN 0.001).
+
 **Başlamadan önce:** Colab'da *Runtime → Change runtime type → T4 GPU* (veya başka bir NVIDIA GPU) seçin. İki `.mat` dosyasını Google Drive'daki `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter GitHub'dan klonladığı için **yerel değişiklikleriniz ancak siz commit ve push ettikten sonra Colab'a ulaşır**. Defter otomatik commit/push yapmaz.
 
 | DATASET | Veri küpü | Etiketler | Bant / sınıf |
@@ -41,7 +43,7 @@ DATASET = "UP" #@param ["UP", "SA", "IP"]
 SEED = 93 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
 EPOCHS = 300 #@param {type:"integer"}
-LEARNING_RATE = 0.001 #@param {type:"number"}
+LEARNING_RATE = 0.0 #@param {type:"number"} (0: method default)
 BATCH_SIZE = 15 #@param {type:"integer"}
 TEST_BATCH_SIZE = 32 #@param {type:"integer"}
 DEVICE = "gpu" #@param ["gpu", "cpu"]
@@ -59,6 +61,8 @@ EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
 METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
+if LEARNING_RATE == 0:
+    LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
 assert METHOD, "METHOD boş olamaz."
 import json
 METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)

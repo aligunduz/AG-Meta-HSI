@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "notebooks" / "SSARN_10runs_colab.ipynb"
+NOTEBOOK = ROOT / "notebooks" / "AG-Meta-HSI.ipynb"
 
 
 def markdown(source):
@@ -24,19 +24,21 @@ Bu defter `METHOD` ile seçilen kayıtlı PyTorch yöntemini `splits/` altında 
 
 Makalenin UP Tablo 2 **SSARN** sütunu: OA **83,49±3,46**, AA **87,23±2,47**, κ×100 **78,74±4,25**. Makalede her sınıftan 5 rastgele örnek, 9×9 yama ve 10 denemenin ortalaması kullanılmıştır. Buradaki kod bağımsız bir PyTorch uygulamasıdır; mimari ayrıntılarının, ön işlemenin ve optimizasyon ayarlarının makale koduyla birebir aynı olduğu doğrulanmadığı için sayılar bir **referans karşılaştırmasıdır**, kesin yeniden üretim iddiası değildir.
 
+`METHOD="QMTN"` seçildiğinde aynı SSARN üzerinde QLOML ikiz ağ eğitimi çalışır. UP Tablo 2 QMTN referansı OA **87,24±4,18**, AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Makale görev başına destek örneği sayısını sabitlemediği için bu uygulamanın varsayılanı 3'tür; `METHOD_CONFIG_JSON` ile değiştirilebilir. `LEARNING_RATE=0` seçilen yöntemin makaledeki varsayılanını kullanır.
+
 Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` dosyasını `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter kodu [GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) çeker; yeni yerel kodları Colab'ın görmesi için **siz commit ve push etmelisiniz**. Defter commit/push yapmaz. W&B giriş anahtarını hücrelere yazmayın.
 """),
     code("""#@title Deney ayarları
 import json
 
-METHOD = "SSARN" #@param {type:"string"}
+METHOD = "QMTN" #@param {type:"string"}
 METHOD_CONFIG_JSON = "{}" #@param {type:"string"}
 DATASET = "UP" #@param ["UP", "SA", "IP"]
 SEED_START = 90 #@param {type:"integer"}
 RUNS = 10 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
 EPOCHS = 300 #@param {type:"integer"}
-LEARNING_RATE = 0.001 #@param {type:"number"}
+LEARNING_RATE = 0.0 #@param {type:"number"} (0: method default)
 BATCH_SIZE = 15 #@param {type:"integer"}
 TEST_BATCH_SIZE = 64 #@param {type:"integer"}
 DEVICE = "gpu" #@param ["gpu", "cpu"]
@@ -55,6 +57,8 @@ EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
 METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
+if LEARNING_RATE == 0:
+    LEARNING_RATE = 0.002 if METHOD == "QMTN" else 0.001
 assert METHOD and DATASET in {"UP", "SA", "IP"}
 METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)
 assert isinstance(METHOD_CONFIG, dict), "METHOD_CONFIG_JSON bir JSON nesnesi olmalı"
@@ -169,6 +173,8 @@ for name in ("OA", "AA", "kappa"):
     print(f"{name}: {values['mean_percent']:.2f} ± {values['std_percent']:.2f}")
 if METHOD == "SSARN" and DATASET == "UP":
     print("Makale Tablo 2 SSARN: OA 83.49±3.46 | AA 87.23±2.47 | κ×100 78.74±4.25")
+elif METHOD == "QMTN" and DATASET == "UP":
+    print("Makale Tablo 2 QMTN: OA 87.24±4.18 | AA 91.69±1.47 | κ×100 83.70±5.13")
 print("Ayrıntılı dosyalar:", experiment_dir)
 """),
     code("""#@title 10 koşu özetini tek W&B koşusuna kaydet
@@ -189,7 +195,7 @@ for index, cell in enumerate(cells, start=1):
 notebook = {
     "cells": cells,
     "metadata": {
-        "colab": {"name": "SSARN_10runs_colab.ipynb"},
+        "colab": {"name": "AG-Meta-HSI.ipynb"},
         "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": {"name": "python"},
     },
