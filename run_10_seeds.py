@@ -7,7 +7,7 @@ from pytorch.benchmark import run_benchmark
 
 BASELINE = "SSARN"
 DATASET = "UP"  # UP, SA, IP
-SEED_START = 101
+SEED_START = 93
 RUNS = 10
 K = 5
 EPOCHS = 300

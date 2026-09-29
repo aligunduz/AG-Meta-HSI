@@ -53,7 +53,7 @@ def log_benchmark(directory: str | Path, *, project: str = "ag-meta-hsi",
     wandb.login()
     with wandb.init(
         project=project, entity=entity or None,
-        id=run_id, resume="must" if run_id else None,
+        id=run_id, resume="allow" if run_id else None,
         name=f"{settings['baseline']}-{settings['dataset']}-{summary['n']}runs-"
              f"{settings['seeds'][0]}-{settings['seeds'][-1]}",
         group=f"{settings['baseline']}-{settings['dataset']}",

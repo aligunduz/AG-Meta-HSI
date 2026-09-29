@@ -36,7 +36,7 @@ uygun GPU paketini seçin; `numpy`, `scipy` ve `wandb` de gereklidir.
 ## 10 seed ile ortalama ± standart sapma
 
 PyCharm'da [`run_10_seeds.py`](run_10_seeds.py) dosyasını açıp **Run**
-seçin. Varsayılan seed'ler **101–110**; her biri için yeni bir rastgele
+seçin. Varsayılan seed'ler **93–102**; her biri için yeni bir rastgele
 split, sıfırdan model ve optimizer kullanılır. `UP` için her koşuda
 45 eğitim, 42.731 test merkezi vardır. Bu deney, tek koşu için kayıtlı
 `splits/up_seed93_k5.tsv` dosyasını kullanmaz. İsterseniz
@@ -47,7 +47,7 @@ başlatırken `EXPERIMENT_NAME` için yeni bir ad girin.
 Komut satırı karşılığı:
 
 ```powershell
-.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 101 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds101-110_k5_e300
+.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 93 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds93-102_k5_e300
 ```
 
 Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,

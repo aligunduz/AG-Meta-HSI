@@ -29,7 +29,7 @@ Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` 
     code("""#@title Deney ayarları
 BASELINE = "SSARN" #@param {type:"string"}
 DATASET = "UP" #@param ["UP", "SA", "IP"]
-SEED_START = 101 #@param {type:"integer"}
+SEED_START = 93 #@param {type:"integer"}
 RUNS = 10 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
 EPOCHS = 300 #@param {type:"integer"}
