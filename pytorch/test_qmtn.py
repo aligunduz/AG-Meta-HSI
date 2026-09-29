@@ -30,6 +30,10 @@ class QMTNTests(unittest.TestCase):
         self.assertEqual(len(set(support[:, 2])), 5)
         with self.assertRaisesRegex(ValueError, "support_shots"):
             resolve_meta_config("UP", 5, {"support_shots": 5})
+        self.assertEqual(resolve_meta_config("UP", 5, {})["support_shots"], 4)
+        self.assertEqual(resolve_meta_config("UP", 5, {})["epoch_transfer"], "none")
+        with self.assertRaisesRegex(ValueError, "epoch_transfer"):
+            resolve_meta_config("UP", 5, {"epoch_transfer": "invalid"})
 
     def test_query_gradient_updates_twin_only(self):
         torch.manual_seed(11)
@@ -62,6 +66,8 @@ class QMTNTests(unittest.TestCase):
                                                                  "inner_steps": 1})
             config = json.loads((output / "config.json").read_text())
             self.assertEqual(config["effective_meta_config"]["ways"], 5)
+            self.assertEqual(config["effective_meta_config"]["support_shots"], 4)
+            self.assertEqual(config["epoch_transfer"], "none")
             self.assertEqual(config["learning_rate"], 0.002)
             self.assertEqual(result["epoch"], 2)
             self.assertEqual(load_results(output)[0], result)
@@ -71,6 +77,18 @@ class QMTNTests(unittest.TestCase):
             SSARN(103, 9).load_state_dict(checkpoint["model_state_dict"])
             self.assertTrue(any(not torch.equal(checkpoint["model_state_dict"][name],
                                                 checkpoint["twin_state_dict"][name])
+                                for name in checkpoint["model_state_dict"]))
+            transferred = root / "transferred"
+            run_baseline(dataset="UP", data_dir=root, split_path=split,
+                         output_dir=transferred, seed=93, k=5, epochs=2,
+                         batch_size=15, test_batch_size=16, device="cpu",
+                         mode="train", method_config={"tasks_per_epoch": 2,
+                                                        "inner_steps": 1,
+                                                        "epoch_transfer": "twin_to_model"})
+            transferred_checkpoint = torch.load(transferred / "checkpoint.pt",
+                                                map_location="cpu", weights_only=True)
+            self.assertTrue(any(not torch.equal(checkpoint["model_state_dict"][name],
+                                                transferred_checkpoint["model_state_dict"][name])
                                 for name in checkpoint["model_state_dict"]))
 
     def test_benchmark_resumes_qmtn_runs(self):

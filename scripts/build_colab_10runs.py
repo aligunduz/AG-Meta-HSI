@@ -24,7 +24,7 @@ Bu defter `METHOD` ile seçilen kayıtlı PyTorch yöntemini `splits/` altında 
 
 Makalenin UP Tablo 2 **SSARN** sütunu: OA **83,49±3,46**, AA **87,23±2,47**, κ×100 **78,74±4,25**. Makalede her sınıftan 5 rastgele örnek, 9×9 yama ve 10 denemenin ortalaması kullanılmıştır. Buradaki kod bağımsız bir PyTorch uygulamasıdır; mimari ayrıntılarının, ön işlemenin ve optimizasyon ayarlarının makale koduyla birebir aynı olduğu doğrulanmadığı için sayılar bir **referans karşılaştırmasıdır**, kesin yeniden üretim iddiası değildir.
 
-`METHOD="QMTN"` seçildiğinde aynı SSARN üzerinde QLOML ikiz ağ eğitimi çalışır. UP Tablo 2 QMTN referansı OA **87,24±4,18**, AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Makale görev başına destek örneği sayısını sabitlemediği için bu uygulamanın varsayılanı 3'tür; `METHOD_CONFIG_JSON` ile değiştirilebilir. `LEARNING_RATE=0` seçilen yöntemin makaledeki varsayılanını kullanır.
+`METHOD="QMTN"` seçildiğinde aynı SSARN üzerinde QLOML ikiz ağ eğitimi çalışır. UP Tablo 2 QMTN referansı OA **87,24±4,18**, AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Fig. 11(d)'den çıkarılan varsayılan destek sayısı **4-shot**'tır. Algorithm 1'in harfiyen okumasıyla ikizden SSARN'a epoch aktarımı yapılmaz (`epoch_transfer="none"`); önceki aktarım yorumu `METHOD_CONFIG_JSON='{"epoch_transfer":"twin_to_model"}'` ile ayrıca denenebilir. `LEARNING_RATE=0` seçilen yöntemin varsayılanını kullanır.
 
 Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` dosyasını `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter kodu [GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) çeker; yeni yerel kodları Colab'ın görmesi için **siz commit ve push etmelisiniz**. Defter commit/push yapmaz. W&B giriş anahtarını hücrelere yazmayın.
 """),
@@ -38,7 +38,8 @@ SEED_START = 90 #@param {type:"integer"}
 RUNS = 10 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
 EPOCHS = 300 #@param {type:"integer"}
-LEARNING_RATE = 0.0 #@param {type:"number"} (0: method default)
+# 0 seçilen yöntemin varsayılan öğrenme hızını kullanır.
+LEARNING_RATE = 0.0 #@param {type:"number"}
 BATCH_SIZE = 15 #@param {type:"integer"}
 TEST_BATCH_SIZE = 64 #@param {type:"integer"}
 DEVICE = "gpu" #@param ["gpu", "cpu"]

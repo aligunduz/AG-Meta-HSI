@@ -24,19 +24,21 @@ from .train import (ROOT, classification_metrics, cpu_tree, evaluate,
 
 
 def resolve_meta_config(dataset: str, k: int, supplied: dict | None) -> dict:
-    """Keep the published settings and expose the unspecified support split."""
+    """Resolve the paper settings and the explicit transfer ablation."""
     if supplied is None:
         supplied = {}
     if not isinstance(supplied, dict):
         raise ValueError("method_config must be a dictionary")
-    allowed = {"ways", "support_shots", "tasks_per_epoch", "inner_steps", "inner_lr"}
+    allowed = {"ways", "support_shots", "tasks_per_epoch", "inner_steps",
+               "inner_lr", "epoch_transfer"}
     unknown = set(supplied) - allowed
     if unknown:
         raise ValueError(f"Unknown QMTN settings: {sorted(unknown)}")
     classes = dataset_spec(dataset)[-1]
     config = {"ways": 5 if dataset == "UP" else 8,
-              "support_shots": 3, "tasks_per_epoch": 16,
-              "inner_steps": 3, "inner_lr": 0.01}
+              "support_shots": 4, "tasks_per_epoch": 16,
+              "inner_steps": 3, "inner_lr": 0.01,
+              "epoch_transfer": "none"}
     config.update(supplied)
     for name in ("ways", "support_shots", "tasks_per_epoch", "inner_steps"):
         if isinstance(config[name], bool) or not isinstance(config[name], int):
@@ -49,6 +51,8 @@ def resolve_meta_config(dataset: str, k: int, supplied: dict | None) -> dict:
         raise ValueError("tasks_per_epoch and inner_steps must be positive")
     if not isinstance(config["inner_lr"], (int, float)) or not math.isfinite(config["inner_lr"]) or config["inner_lr"] <= 0:
         raise ValueError("inner_lr must be positive and finite")
+    if config["epoch_transfer"] not in ("none", "twin_to_model"):
+        raise ValueError("epoch_transfer must be none or twin_to_model")
     return config
 
 
@@ -185,7 +189,7 @@ def run_baseline(*, baseline: str = "QMTN", dataset: str = "UP",
     destination.mkdir(parents=True)
     cube_file, gt_file, *_ = dataset_spec(dataset)
     config = {
-        "model": "QMTN-SSARN-QLOML-v1", "baseline": baseline,
+        "model": "QMTN-SSARN-QLOML-v2", "baseline": baseline,
         "method_config": {} if method_config is None else method_config,
         "effective_meta_config": meta, "framework": "PyTorch", "dataset": dataset,
         "seed": seed, "k": k, "split_seed": split.seed,
@@ -199,9 +203,9 @@ def run_baseline(*, baseline: str = "QMTN", dataset: str = "UP",
         "preprocessing": "raw Float32; zero padding; no augmentation",
         "selection": "fixed final epoch; test once after checkpoint",
         "query_gradient": "gradient at support-adapted SSARN copied to twin; no second-order graph",
-        "epoch_transfer": "twin parameters copied to SSARN at start of next epoch",
+        "epoch_transfer": meta["epoch_transfer"],
         "task_pool": "sampled once from fixed train split; shuffled each epoch",
-        "support_shots_note": "Paper varies K from 1 to 4 without fixing the reported setting; default 3 is an explicit implementation choice",
+        "support_shots_note": "Fig. 11(d) K=4 points match Table 2-4 OA; this is inferred from the plot",
         "python_version": __import__("sys").version.split()[0],
         "torch_version": str(torch.__version__),
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -219,7 +223,7 @@ def run_baseline(*, baseline: str = "QMTN", dataset: str = "UP",
         writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
         writer.writerow(["epoch", "train_cross_entropy", "support_cross_entropy", "query_cross_entropy"])
         for epoch in range(1, epochs + 1):
-            if epoch > 1:
+            if epoch > 1 and meta["epoch_transfer"] == "twin_to_model":
                 model.load_state_dict(twin.state_dict())
             losses = [run_task(task_pool[int(index)]) for index in rng.permutation(len(task_pool))]
             support_mean = float(np.mean([pair[0] for pair in losses]))

@@ -110,25 +110,28 @@ Her meta görevde eğitim split'inden rastgele sınıflar seçilir. Sınıf baş
 havuz bir kez kurulur; her epoch'ta görev sırası karıştırılır. Destek
 kaybıyla asıl SSARN, SGD ile üç kez güncellenir. Uyarlanmış SSARN'da
 hesaplanan sorgu kaybının gradyanı, ayrı ikiz ağın Adam güncellemesine
-aktarılır; ikinci derece türev hesaplanmaz. İkiz ağın parametreleri sonraki
-epoch başında SSARN'a aktarılır. Son epoch'taki **asıl SSARN** test edilir;
+aktarılır; ikinci derece türev hesaplanmaz. Varsayılan `epoch_transfer="none"`
+makaledeki Algorithm 1'i harfiyen izler: iki ağ kendi parametrelerini sonraki
+epoch'a taşır ve ikizden SSARN'a kopyalama yapılmaz. Bu okumada ikiz ağ
+test edilen SSARN'ı etkilemez. İsteğe bağlı `epoch_transfer="twin_to_model"`
+önceki kopyalama yorumunu bir ablation olarak korur. Son epoch'taki **asıl SSARN** test edilir;
 ikiz ağın durumu da checkpoint'te saklanır. Test pikselleri meta görevlere
 girmez. `QMTN-DA` gürültü artırımı bu baseline'a dahil değildir.
 
 Makalenin açık ayarları varsayılandır: UP için 5-way, IP/SA için 8-way,
 epoch başına 16 görev, 3 destek güncellemesi, iç SGD öğrenme hızı 0.01,
-dış Adam öğrenme hızı 0.002 ve 300 epoch. Makale görev başına destek
-örneği sayısını 1–4 arasında inceler ama Tablo 2 için hangisini
-kullandığını açıkça belirtmez. Bu uygulama **3-shot** varsayar;
-`--method-config '{"support_shots":2}'` ile değiştirilebilir. Aynı JSON
-içinde `ways`, `tasks_per_epoch`, `inner_steps`, `inner_lr` ayarlanabilir.
+dış Adam öğrenme hızı 0.002 ve 300 epoch. Fig. 11(d)'deki 4-shot OA
+noktaları Tablo 2–4 ile örtüştüğünden bu uygulama **4-shot** varsayar;
+bu grafik üzerinden yapılan bir çıkarımdır. `--method-config '{"support_shots":2}'`
+ile değiştirilebilir. Aynı JSON içinde `ways`, `tasks_per_epoch`,
+`inner_steps`, `inner_lr`, `epoch_transfer` ayarlanabilir.
 `--lr` dış Adam hızıdır; yöntem belirtilince varsayılan otomatik seçilir.
 `batch_size` QMTN'de arayüz uyumluluğu için tutulur; görevlerin destek ve
 sorgu kümeleri tam olarak işlenir.
 
 Makalenin UP Tablo 2 **QMTN** referansı OA **87,24±4,18**,
 AA **91,69±1,47**, κ×100 **83,70±5,13** değerleridir. Makaledeki
-görev örnekleme ve ikiz ağın buffer aktarımı ayrıntıları tam belirtilmediği
+görev örnekleme ve ikiz ağın eğitimdeki rolü tam belirtilmediği
 için bu bağımsız uygulama birebir yeniden üretim iddiası taşımaz.
 
 ## Veri ve sabit ayrım
