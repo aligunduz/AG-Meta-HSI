@@ -30,7 +30,7 @@ Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayı
 | SA | `Salinas_corrected.mat` | `Salinas_gt.mat` | 204 / 16 |
 | IP | `Indian_pines_corrected.mat` | `Indian_pines_gt.mat` | 200 / 16 |
 
-Veri: [UPV/EHU hyperspectral scenes](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes). `SPLIT_PATH` boşken **UP/seed93/k5** için projedeki `splits/up_seed93_k5.tsv` kullanılır. Diğer kombinasyonlar için kayıtlı ayrım yoksa Python, NumPy PCG64 ile yeni bir sabit seed ayrımı üretir. Başka bir hazır TSV ayrımı kullanmak için dosyayı Drive'a kopyalayıp `SPLIT_PATH` olarak verin. Farklı rastgele sayı üreteçleri aynı seed ile farklı pikseller seçebilir.
+Veri: [UPV/EHU hyperspectral scenes](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes). `SPLIT_PATH` boşken UP/seed90–99/k5 için projedeki resmi `splits/` dosyaları kullanılır. Başka bir hazır TSV ayrımı kullanmak için dosyayı Drive'a kopyalayıp `SPLIT_PATH` olarak verin. Dosya bulunmazsa eğitim hata verir; split otomatik üretilmez.
 
 `WANDB_ENTITY` kişisel hesapta boş kalabilir; bir takım workspace'ine yazacaksanız takımın entity adını girin. W&B API anahtarını deftere yazmayın; giriş penceresi açılır. Çıktılar Drive'da kalır; veri ve checkpoint W&B'ye yüklenmez.
 """),

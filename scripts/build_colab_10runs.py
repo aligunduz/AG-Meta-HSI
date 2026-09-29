@@ -20,7 +20,7 @@ def code(source):
 cells = [
     markdown("""# SSARN — 10 bağımsız seed ile değerlendirme
 
-Bu defter **PyTorch SSARN supervised baseline** için 10 seed çalıştırır. Her seed'e özel rastgele `k=5` eğitim pikseli seçilir, geri kalan etiketli pikseller test edilir. Model ve optimizer her koşuda yeniden başlatılır. OA, AA ve κ için **10 koşunun aritmetik ortalaması ± örnek standart sapması** hesaplanır. Her seed'in split dosyası, checkpoint'i ve ölçütleri ayrı saklanır. Aynı deney klasöründe defter yeniden çalıştırılırsa tamamlanmış seed'ler tekrar eğitilmez; yarım kalan seed için yeni bir attempt açılır.
+Bu defter **PyTorch SSARN supervised baseline** için `splits/` altında önceden sabitlenmiş 10 split'i okur. Varsayılan UP seed seti **90–99**, sınıf başına `k=5` eğitim pikselidir. Model ve optimizer her koşuda yeniden başlatılır. OA, AA ve κ için **10 koşunun aritmetik ortalaması ± örnek standart sapması** hesaplanır. Her seed'in split dosyası, checkpoint'i ve ölçütleri ayrı saklanır. Aynı deney klasöründe defter yeniden çalıştırılırsa tamamlanmış seed'ler tekrar eğitilmez; yarım kalan seed için yeni bir attempt açılır.
 
 Makalenin UP Tablo 2 **SSARN** sütunu: OA **83,49±3,46**, AA **87,23±2,47**, κ×100 **78,74±4,25**. Makalede her sınıftan 5 rastgele örnek, 9×9 yama ve 10 denemenin ortalaması kullanılmıştır. Buradaki kod bağımsız bir PyTorch uygulamasıdır; mimari ayrıntılarının, ön işlemenin ve optimizasyon ayarlarının makale koduyla birebir aynı olduğu doğrulanmadığı için sayılar bir **referans karşılaştırmasıdır**, kesin yeniden üretim iddiası değildir.
 
@@ -29,7 +29,7 @@ Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` 
     code("""#@title Deney ayarları
 BASELINE = "SSARN" #@param {type:"string"}
 DATASET = "UP" #@param ["UP", "SA", "IP"]
-SEED_START = 93 #@param {type:"integer"}
+SEED_START = 90 #@param {type:"integer"}
 RUNS = 10 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
 EPOCHS = 300 #@param {type:"integer"}

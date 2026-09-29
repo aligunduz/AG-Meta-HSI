@@ -1,50 +1,50 @@
-# seed=93 k=5
+# seed=92 k=5
 set	class	row	col
-train	1	34	65
-train	1	75	139
-train	1	92	146
-train	1	368	284
-train	1	396	311
-train	2	517	221
-train	2	525	207
-train	2	558	216
-train	2	608	164
-train	2	608	182
-train	3	313	3
-train	3	358	37
-train	3	388	21
-train	3	407	80
-train	3	455	3
-train	4	96	136
-train	4	150	190
-train	4	340	289
-train	4	530	170
-train	4	572	56
-train	5	161	126
-train	5	172	129
-train	5	192	136
-train	5	197	131
-train	5	254	154
-train	6	283	205
-train	6	287	213
-train	6	299	185
-train	6	315	206
-train	6	332	215
-train	7	316	117
-train	7	316	149
-train	7	350	142
-train	7	363	148
-train	7	369	152
-train	8	145	47
-train	8	200	51
-train	8	217	75
-train	8	233	48
-train	8	523	113
-train	9	382	146
-train	9	434	99
-train	9	443	12
-train	9	482	35
-train	9	484	31
+train	1	72	137
+train	1	151	177
+train	1	419	321
+train	1	439	254
+train	1	586	74
+train	2	101	36
+train	2	108	29
+train	2	568	203
+train	2	588	20
+train	2	610	225
+train	3	326	28
+train	3	405	77
+train	3	443	80
+train	3	451	8
+train	3	460	6
+train	4	233	20
+train	4	299	309
+train	4	321	278
+train	4	447	98
+train	4	523	157
+train	5	149	128
+train	5	167	126
+train	5	177	133
+train	5	196	124
+train	5	213	139
+train	6	271	196
+train	6	312	213
+train	6	327	164
+train	6	345	184
+train	6	355	196
+train	7	319	128
+train	7	324	119
+train	7	359	154
+train	7	363	140
+train	7	370	151
+train	8	174	56
+train	8	183	46
+train	8	446	144
+train	8	509	74
+train	8	521	115
+train	9	203	127
+train	9	313	168
+train	9	340	45
+train	9	349	30
+train	9	437	95
 test	1	1	92
 test	1	1	93
 test	1	1	94
@@ -538,6 +538,7 @@ test	1	33	115
 test	1	33	116
 test	1	33	117
 test	1	33	118
+test	1	34	65
 test	1	34	66
 test	1	34	67
 test	1	34	68
@@ -1063,7 +1064,6 @@ test	1	72	133
 test	1	72	134
 test	1	72	135
 test	1	72	136
-test	1	72	137
 test	1	72	138
 test	1	72	139
 test	1	72	140
@@ -1093,6 +1093,7 @@ test	1	75	135
 test	1	75	136
 test	1	75	137
 test	1	75	138
+test	1	75	139
 test	1	75	140
 test	1	75	141
 test	1	76	134
@@ -1228,6 +1229,7 @@ test	1	92	142
 test	1	92	143
 test	1	92	144
 test	1	92	145
+test	1	92	146
 test	1	92	147
 test	1	92	148
 test	1	92	149
@@ -1705,7 +1707,6 @@ test	1	151	173
 test	1	151	174
 test	1	151	175
 test	1	151	176
-test	1	151	177
 test	1	151	178
 test	1	151	179
 test	1	151	180
@@ -3687,6 +3688,7 @@ test	1	368	280
 test	1	368	281
 test	1	368	282
 test	1	368	283
+test	1	368	284
 test	1	368	285
 test	1	368	286
 test	1	369	106
@@ -4316,6 +4318,7 @@ test	1	396	307
 test	1	396	308
 test	1	396	309
 test	1	396	310
+test	1	396	311
 test	1	396	312
 test	1	396	313
 test	1	396	314
@@ -4780,7 +4783,6 @@ test	1	419	317
 test	1	419	318
 test	1	419	319
 test	1	419	320
-test	1	419	321
 test	1	419	322
 test	1	419	323
 test	1	420	143
@@ -5098,7 +5100,6 @@ test	1	439	156
 test	1	439	157
 test	1	439	252
 test	1	439	253
-test	1	439	254
 test	1	439	255
 test	1	439	256
 test	1	439	328
@@ -6566,7 +6567,6 @@ test	1	586	70
 test	1	586	71
 test	1	586	72
 test	1	586	73
-test	1	586	74
 test	1	586	75
 test	1	586	76
 test	1	586	77
@@ -8602,7 +8602,6 @@ test	2	101	32
 test	2	101	33
 test	2	101	34
 test	2	101	35
-test	2	101	36
 test	2	101	37
 test	2	101	52
 test	2	101	53
@@ -9043,7 +9042,6 @@ test	2	108	25
 test	2	108	26
 test	2	108	27
 test	2	108	28
-test	2	108	29
 test	2	108	30
 test	2	108	31
 test	2	108	32
@@ -13474,6 +13472,7 @@ test	2	517	217
 test	2	517	218
 test	2	517	219
 test	2	517	220
+test	2	517	221
 test	2	517	222
 test	2	517	223
 test	2	517	224
@@ -13947,6 +13946,7 @@ test	2	525	203
 test	2	525	204
 test	2	525	205
 test	2	525	206
+test	2	525	207
 test	2	525	208
 test	2	525	209
 test	2	525	210
@@ -16413,6 +16413,7 @@ test	2	558	212
 test	2	558	213
 test	2	558	214
 test	2	558	215
+test	2	558	216
 test	2	558	217
 test	2	558	218
 test	2	558	219
@@ -17368,7 +17369,6 @@ test	2	568	199
 test	2	568	200
 test	2	568	201
 test	2	568	202
-test	2	568	203
 test	2	568	204
 test	2	568	205
 test	2	568	206
@@ -19961,7 +19961,6 @@ test	2	588	16
 test	2	588	17
 test	2	588	18
 test	2	588	19
-test	2	588	20
 test	2	588	21
 test	2	588	22
 test	2	588	23
@@ -24624,6 +24623,7 @@ test	2	608	160
 test	2	608	161
 test	2	608	162
 test	2	608	163
+test	2	608	164
 test	2	608	165
 test	2	608	166
 test	2	608	167
@@ -24641,6 +24641,7 @@ test	2	608	178
 test	2	608	179
 test	2	608	180
 test	2	608	181
+test	2	608	182
 test	2	608	183
 test	2	608	184
 test	2	608	185
@@ -25253,7 +25254,6 @@ test	2	610	221
 test	2	610	222
 test	2	610	223
 test	2	610	224
-test	2	610	225
 test	2	610	226
 test	2	610	227
 test	2	610	228
@@ -25511,6 +25511,7 @@ test	3	312	22
 test	3	312	23
 test	3	313	1
 test	3	313	2
+test	3	313	3
 test	3	313	4
 test	3	313	5
 test	3	313	6
@@ -25686,7 +25687,6 @@ test	3	326	24
 test	3	326	25
 test	3	326	26
 test	3	326	27
-test	3	326	28
 test	3	326	29
 test	3	326	30
 test	3	326	31
@@ -25911,6 +25911,7 @@ test	3	358	33
 test	3	358	34
 test	3	358	35
 test	3	358	36
+test	3	358	37
 test	3	358	38
 test	3	359	32
 test	3	359	33
@@ -26386,6 +26387,7 @@ test	3	388	17
 test	3	388	18
 test	3	388	19
 test	3	388	20
+test	3	388	21
 test	3	388	26
 test	3	388	63
 test	3	388	64
@@ -26657,7 +26659,6 @@ test	3	405	62
 test	3	405	63
 test	3	405	75
 test	3	405	76
-test	3	405	77
 test	3	405	78
 test	3	405	79
 test	3	405	80
@@ -26690,6 +26691,7 @@ test	3	407	76
 test	3	407	77
 test	3	407	78
 test	3	407	79
+test	3	407	80
 test	3	407	81
 test	3	407	82
 test	3	408	59
@@ -27101,7 +27103,6 @@ test	3	443	1
 test	3	443	2
 test	3	443	3
 test	3	443	4
-test	3	443	80
 test	3	443	81
 test	3	443	82
 test	3	443	83
@@ -27158,7 +27159,6 @@ test	3	451	4
 test	3	451	5
 test	3	451	6
 test	3	451	7
-test	3	451	8
 test	3	452	1
 test	3	452	2
 test	3	452	3
@@ -27189,6 +27189,7 @@ test	3	454	8
 test	3	454	9
 test	3	454	10
 test	3	455	2
+test	3	455	3
 test	3	455	4
 test	3	455	5
 test	3	455	6
@@ -27242,7 +27243,6 @@ test	3	459	12
 test	3	459	13
 test	3	460	4
 test	3	460	5
-test	3	460	6
 test	3	460	7
 test	3	460	8
 test	3	460	9
@@ -28080,6 +28080,7 @@ test	4	96	40
 test	4	96	41
 test	4	96	42
 test	4	96	135
+test	4	96	136
 test	4	96	137
 test	4	97	39
 test	4	97	40
@@ -28267,6 +28268,7 @@ test	4	149	191
 test	4	150	187
 test	4	150	188
 test	4	150	189
+test	4	150	190
 test	4	151	187
 test	4	151	188
 test	4	151	189
@@ -28407,7 +28409,6 @@ test	4	232	21
 test	4	232	22
 test	4	232	23
 test	4	232	24
-test	4	233	20
 test	4	233	21
 test	4	233	22
 test	4	233	23
@@ -28745,7 +28746,6 @@ test	4	299	23
 test	4	299	59
 test	4	299	60
 test	4	299	308
-test	4	299	309
 test	4	300	59
 test	4	300	60
 test	4	300	118
@@ -28928,7 +28928,6 @@ test	4	321	274
 test	4	321	275
 test	4	321	276
 test	4	321	277
-test	4	321	278
 test	4	321	294
 test	4	322	64
 test	4	322	65
@@ -29081,6 +29080,7 @@ test	4	340	285
 test	4	340	286
 test	4	340	287
 test	4	340	288
+test	4	340	289
 test	4	340	290
 test	4	341	277
 test	4	341	278
@@ -29566,7 +29566,6 @@ test	4	446	257
 test	4	446	258
 test	4	447	94
 test	4	447	97
-test	4	447	98
 test	4	447	251
 test	4	447	252
 test	4	447	253
@@ -29868,7 +29867,6 @@ test	4	522	174
 test	4	523	120
 test	4	523	121
 test	4	523	156
-test	4	523	157
 test	4	523	172
 test	4	523	173
 test	4	524	172
@@ -29900,6 +29898,7 @@ test	4	529	171
 test	4	530	127
 test	4	530	128
 test	4	530	169
+test	4	530	170
 test	4	530	171
 test	4	531	168
 test	4	531	169
@@ -30311,6 +30310,7 @@ test	4	572	22
 test	4	572	23
 test	4	572	24
 test	4	572	55
+test	4	572	56
 test	4	572	57
 test	4	572	63
 test	4	572	70
@@ -30481,7 +30481,6 @@ test	5	148	132
 test	5	148	133
 test	5	148	134
 test	5	149	127
-test	5	149	128
 test	5	149	129
 test	5	149	130
 test	5	149	131
@@ -30626,6 +30625,7 @@ test	5	161	122
 test	5	161	123
 test	5	161	124
 test	5	161	125
+test	5	161	126
 test	5	161	127
 test	5	161	128
 test	5	162	110
@@ -30699,7 +30699,6 @@ test	5	166	145
 test	5	166	146
 test	5	167	124
 test	5	167	125
-test	5	167	126
 test	5	167	127
 test	5	167	128
 test	5	167	129
@@ -30780,6 +30779,7 @@ test	5	171	137
 test	5	172	126
 test	5	172	127
 test	5	172	128
+test	5	172	129
 test	5	172	130
 test	5	172	131
 test	5	172	132
@@ -30851,7 +30851,6 @@ test	5	177	129
 test	5	177	130
 test	5	177	131
 test	5	177	132
-test	5	177	133
 test	5	177	134
 test	5	178	115
 test	5	178	116
@@ -31005,6 +31004,7 @@ test	5	192	132
 test	5	192	133
 test	5	192	134
 test	5	192	135
+test	5	192	136
 test	5	192	137
 test	5	192	138
 test	5	192	139
@@ -31051,7 +31051,6 @@ test	5	195	138
 test	5	195	139
 test	5	195	140
 test	5	195	141
-test	5	196	124
 test	5	196	125
 test	5	196	126
 test	5	196	127
@@ -31075,6 +31074,7 @@ test	5	197	127
 test	5	197	128
 test	5	197	129
 test	5	197	130
+test	5	197	131
 test	5	197	138
 test	5	197	139
 test	5	197	140
@@ -31253,7 +31253,6 @@ test	5	212	149
 test	5	212	150
 test	5	212	151
 test	5	212	152
-test	5	213	139
 test	5	213	140
 test	5	213	141
 test	5	213	142
@@ -31781,6 +31780,7 @@ test	5	254	150
 test	5	254	151
 test	5	254	152
 test	5	254	153
+test	5	254	154
 test	5	254	155
 test	5	254	156
 test	5	254	157
@@ -31853,7 +31853,6 @@ test	6	271	192
 test	6	271	193
 test	6	271	194
 test	6	271	195
-test	6	271	196
 test	6	271	197
 test	6	271	198
 test	6	271	199
@@ -32261,6 +32260,7 @@ test	6	283	201
 test	6	283	202
 test	6	283	203
 test	6	283	204
+test	6	283	205
 test	6	283	206
 test	6	283	207
 test	6	283	208
@@ -32458,6 +32458,7 @@ test	6	287	209
 test	6	287	210
 test	6	287	211
 test	6	287	212
+test	6	287	213
 test	6	288	167
 test	6	288	168
 test	6	288	169
@@ -32989,6 +32990,7 @@ test	6	299	181
 test	6	299	182
 test	6	299	183
 test	6	299	184
+test	6	299	185
 test	6	299	186
 test	6	299	187
 test	6	299	188
@@ -33617,7 +33619,6 @@ test	6	312	209
 test	6	312	210
 test	6	312	211
 test	6	312	212
-test	6	312	213
 test	6	312	214
 test	6	312	215
 test	6	312	216
@@ -33747,6 +33748,7 @@ test	6	315	202
 test	6	315	203
 test	6	315	204
 test	6	315	205
+test	6	315	206
 test	6	315	207
 test	6	315	208
 test	6	315	209
@@ -34418,7 +34420,6 @@ test	6	326	231
 test	6	326	232
 test	6	327	162
 test	6	327	163
-test	6	327	164
 test	6	327	165
 test	6	327	166
 test	6	327	167
@@ -34856,6 +34857,7 @@ test	6	332	211
 test	6	332	212
 test	6	332	213
 test	6	332	214
+test	6	332	215
 test	6	332	216
 test	6	332	217
 test	6	332	218
@@ -35844,7 +35846,6 @@ test	6	345	180
 test	6	345	181
 test	6	345	182
 test	6	345	183
-test	6	345	184
 test	6	345	185
 test	6	345	186
 test	6	345	187
@@ -36448,7 +36449,6 @@ test	6	355	192
 test	6	355	193
 test	6	355	194
 test	6	355	195
-test	6	355	196
 test	6	355	197
 test	6	355	198
 test	6	355	199
@@ -37058,6 +37058,7 @@ test	7	315	154
 test	7	315	155
 test	7	315	156
 test	7	316	116
+test	7	316	117
 test	7	316	118
 test	7	316	119
 test	7	316	120
@@ -37079,6 +37080,7 @@ test	7	316	145
 test	7	316	146
 test	7	316	147
 test	7	316	148
+test	7	316	149
 test	7	316	150
 test	7	316	151
 test	7	316	152
@@ -37164,7 +37166,6 @@ test	7	319	124
 test	7	319	125
 test	7	319	126
 test	7	319	127
-test	7	319	128
 test	7	319	129
 test	7	319	130
 test	7	319	131
@@ -37296,7 +37297,6 @@ test	7	324	115
 test	7	324	116
 test	7	324	117
 test	7	324	118
-test	7	324	119
 test	7	324	120
 test	7	324	121
 test	7	324	122
@@ -37683,6 +37683,7 @@ test	7	350	138
 test	7	350	139
 test	7	350	140
 test	7	350	141
+test	7	350	142
 test	7	350	143
 test	7	350	144
 test	7	350	145
@@ -37833,7 +37834,6 @@ test	7	359	150
 test	7	359	151
 test	7	359	152
 test	7	359	153
-test	7	359	154
 test	7	359	155
 test	7	359	156
 test	7	359	157
@@ -37893,7 +37893,6 @@ test	7	362	158
 test	7	362	159
 test	7	362	160
 test	7	362	161
-test	7	363	140
 test	7	363	141
 test	7	363	142
 test	7	363	143
@@ -37901,6 +37900,7 @@ test	7	363	144
 test	7	363	145
 test	7	363	146
 test	7	363	147
+test	7	363	148
 test	7	363	149
 test	7	363	150
 test	7	363	151
@@ -38059,6 +38059,7 @@ test	7	369	148
 test	7	369	149
 test	7	369	150
 test	7	369	151
+test	7	369	152
 test	7	369	153
 test	7	369	154
 test	7	370	134
@@ -38078,7 +38079,6 @@ test	7	370	147
 test	7	370	148
 test	7	370	149
 test	7	370	150
-test	7	370	151
 test	7	370	152
 test	7	370	153
 test	7	371	135
@@ -38160,6 +38160,7 @@ test	7	378	140
 test	8	145	44
 test	8	145	45
 test	8	145	46
+test	8	145	47
 test	8	145	48
 test	8	146	43
 test	8	146	44
@@ -38618,7 +38619,6 @@ test	8	174	43
 test	8	174	44
 test	8	174	45
 test	8	174	55
-test	8	174	56
 test	8	174	57
 test	8	174	58
 test	8	174	59
@@ -38745,7 +38745,6 @@ test	8	183	28
 test	8	183	29
 test	8	183	44
 test	8	183	45
-test	8	183	46
 test	8	183	47
 test	8	183	60
 test	8	183	61
@@ -38892,6 +38891,7 @@ test	8	200	35
 test	8	200	41
 test	8	200	42
 test	8	200	43
+test	8	200	51
 test	8	200	52
 test	8	200	68
 test	8	200	69
@@ -39050,6 +39050,7 @@ test	8	217	57
 test	8	217	58
 test	8	217	59
 test	8	217	74
+test	8	217	75
 test	8	217	76
 test	8	218	40
 test	8	218	41
@@ -39199,6 +39200,7 @@ test	8	232	83
 test	8	232	84
 test	8	233	46
 test	8	233	47
+test	8	233	48
 test	8	233	49
 test	8	233	64
 test	8	233	65
@@ -39990,7 +39992,6 @@ test	8	446	140
 test	8	446	141
 test	8	446	142
 test	8	446	143
-test	8	446	144
 test	8	447	110
 test	8	447	111
 test	8	447	112
@@ -40796,7 +40797,6 @@ test	8	509	70
 test	8	509	71
 test	8	509	72
 test	8	509	73
-test	8	509	74
 test	8	509	92
 test	8	509	93
 test	8	509	97
@@ -41008,7 +41008,6 @@ test	8	521	111
 test	8	521	112
 test	8	521	113
 test	8	521	114
-test	8	521	115
 test	8	521	116
 test	8	522	77
 test	8	522	78
@@ -41042,6 +41041,7 @@ test	8	523	109
 test	8	523	110
 test	8	523	111
 test	8	523	112
+test	8	523	113
 test	8	524	45
 test	8	524	46
 test	8	524	47
@@ -41928,7 +41928,6 @@ test	9	202	130
 test	9	202	131
 test	9	202	132
 test	9	203	126
-test	9	203	127
 test	9	203	128
 test	9	203	129
 test	9	203	130
@@ -42050,7 +42049,6 @@ test	9	260	155
 test	9	260	156
 test	9	261	154
 test	9	313	167
-test	9	313	168
 test	9	313	169
 test	9	313	170
 test	9	314	166
@@ -42202,7 +42200,6 @@ test	9	339	47
 test	9	339	48
 test	9	339	136
 test	9	339	137
-test	9	340	45
 test	9	340	46
 test	9	341	118
 test	9	341	119
@@ -42236,7 +42233,6 @@ test	9	348	32
 test	9	349	27
 test	9	349	28
 test	9	349	29
-test	9	349	30
 test	9	349	31
 test	9	349	32
 test	9	350	26
@@ -42312,6 +42308,7 @@ test	9	382	142
 test	9	382	143
 test	9	382	144
 test	9	382	145
+test	9	382	146
 test	9	382	147
 test	9	383	143
 test	9	383	144
@@ -42521,6 +42518,7 @@ test	9	434	95
 test	9	434	96
 test	9	434	97
 test	9	434	98
+test	9	434	99
 test	9	434	100
 test	9	434	218
 test	9	434	219
@@ -42595,7 +42593,6 @@ test	9	437	50
 test	9	437	51
 test	9	437	93
 test	9	437	94
-test	9	437	95
 test	9	437	96
 test	9	437	212
 test	9	437	213
@@ -42661,6 +42658,7 @@ test	9	442	208
 test	9	442	209
 test	9	442	210
 test	9	443	11
+test	9	443	12
 test	9	447	197
 test	9	448	195
 test	9	448	196
@@ -42744,6 +42742,7 @@ test	9	482	31
 test	9	482	32
 test	9	482	33
 test	9	482	34
+test	9	482	35
 test	9	483	27
 test	9	483	28
 test	9	483	29
@@ -42757,6 +42756,7 @@ test	9	484	27
 test	9	484	28
 test	9	484	29
 test	9	484	30
+test	9	484	31
 test	9	484	32
 test	9	485	27
 test	9	485	28

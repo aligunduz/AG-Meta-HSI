@@ -36,10 +36,9 @@ uygun GPU paketini seçin; `numpy`, `scipy` ve `wandb` de gereklidir.
 ## 10 seed ile ortalama ± standart sapma
 
 PyCharm'da [`run_10_seeds.py`](run_10_seeds.py) dosyasını açıp **Run**
-seçin. Varsayılan seed'ler **93–102**; her biri için yeni bir rastgele
-split, sıfırdan model ve optimizer kullanılır. `UP` için her koşuda
-45 eğitim, 42.731 test merkezi vardır. Bu deney, tek koşu için kayıtlı
-`splits/up_seed93_k5.tsv` dosyasını kullanmaz. İsterseniz
+seçin. Varsayılan seed'ler **90–99**; her biri için `splits/` altındaki
+sabit TSV, sıfırdan model ve optimizer kullanılır. `UP` için her koşuda
+45 eğitim, 42.731 test merkezi vardır. İsterseniz
 `SEED_START`, `RUNS`, `DATASET` ve diğer ayarları dosyanın başından
 değiştirin. Öğrenme hızı veya batch boyutunu değiştirerek yeni bir deney
 başlatırken `EXPERIMENT_NAME` için yeni bir ad girin.
@@ -47,7 +46,7 @@ başlatırken `EXPERIMENT_NAME` için yeni bir ad girin.
 Komut satırı karşılığı:
 
 ```powershell
-.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 93 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds93-102_k5_e300
+.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds90-99_k5_e300
 ```
 
 Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,
@@ -97,11 +96,13 @@ Veri dosyaları `data/` klasöründe olmalıdır. Kaynak:
 | `SA` | `Salinas_corrected.mat` | `Salinas_gt.mat` | 204 / 16 |
 | `IP` | `Indian_pines_corrected.mat` | `Indian_pines_gt.mat` | 200 / 16 |
 
-Kayıtlı `splits/up_seed93_k5.tsv` dosyası, UP/seed93/k5 için **45 eğitim**
-ve **42.731 test** merkezini sabitler. PyCharm ve Colab aynı dosyayı kullanır.
-Başka bir `--split` yolu verilebilir. Kayıtlı dosya bulunmazsa Python
-NumPy PCG64 ile sınıf başına `k` eğitim pikseli seçer ve yeni ayrımı
-saklar. Arka plan sınıfı 0 değerlendirmeye girmez. Komşu eğitim/test
+Resmi UP split seti `splits/up_seed90_k5.tsv`–`up_seed99_k5.tsv` dosyalarıdır;
+her biri **45 eğitim** ve **42.731 test** merkezini sabitler. PyCharm ve Colab
+aynı dosyaları kullanır. Eski Julia seed 93 split'i
+`splits/legacy_up_seed93_julia_k5.tsv` adıyla ayrı tutulur. Başka bir
+`--split` yolu verilebilir; dosya bulunmazsa eğitim hata verir. Benchmark
+da eksik split için hata verir, dosya üretmez. Arka plan sınıfı 0
+değerlendirmeye girmez. Komşu eğitim/test
 yamaları uzamsal olarak örtüşebilir.
 
 Yamalar `9×9`, sınırda sıfır padding ve ham `Float32` değerlerle

@@ -6,13 +6,14 @@ import argparse
 import csv
 import json
 import math
+import shutil
 import statistics
 from pathlib import Path
 
 import torch
 
 from .data import (dataset_spec, file_sha256, load_pixel_split, load_scene,
-                   make_pixel_split, save_pixel_split, validate_pixel_split)
+                   validate_pixel_split)
 from .train import ROOT, run_baseline, write_json
 from .wandb_log import load_results
 
@@ -49,7 +50,8 @@ def _write_runs(path: Path, rows: list[dict]) -> None:
 
 def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
                   data_dir: str | Path = "data", output_dir: str | Path | None = None,
-                  seed_start: int = 101, runs: int = 10, k: int = 5,
+                  split_dir: str | Path | None = None,
+                  seed_start: int = 90, runs: int = 10, k: int = 5,
                   epochs: int = 300, learning_rate: float = 0.001,
                   batch_size: int = 15, test_batch_size: int = 32,
                   device: str = "gpu") -> dict:
@@ -70,6 +72,24 @@ def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
 
     seeds = list(range(seed_start, seed_start + runs))
     data_dir = Path(data_dir).resolve()
+    source_split_dir = (Path(split_dir) if split_dir is not None else ROOT / "splits").resolve()
+    scene = load_scene(dataset, data_dir)
+    splits = {}
+    training_sets = set()
+    for seed in seeds:
+        split_file = source_split_dir / f"{dataset.lower()}_seed{seed}_k{k}.tsv"
+        if not split_file.is_file():
+            raise FileNotFoundError(f"Fixed split file does not exist: {split_file}")
+        split = load_pixel_split(split_file)
+        if split.seed != seed or split.k != k:
+            raise ValueError(f"Split metadata mismatch: {split_file}")
+        validate_pixel_split(scene.labels, split)
+        coordinates = tuple(map(tuple, split.train.tolist()))
+        if coordinates in training_sets:
+            raise ValueError(f"Duplicate training split for seed {seed}")
+        training_sets.add(coordinates)
+        splits[seed] = (split_file, file_sha256(split_file))
+
     root = (Path(output_dir) if output_dir is not None else
             ROOT / "outputs" / f"ssarn_{dataset.lower()}_k{k}_seeds{seeds[0]}-{seeds[-1]}")
     root = root.resolve()
@@ -79,7 +99,8 @@ def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
         "seeds": seeds, "k": k, "epochs": epochs, "learning_rate": learning_rate,
         "batch_size": batch_size, "test_batch_size": test_batch_size,
         "device": "CUDA" if device == "gpu" else "CPU",
-        "split_generator": "NumPy PCG64 default_rng, independent per seed",
+        "split_source": "fixed TSV files",
+        "split_sha256": {str(seed): splits[seed][1] for seed in seeds},
         "data_sha256": {
             name: file_sha256(data_dir / name) for name in (cube_file, gt_file)},
         "source_sha256": {
@@ -97,24 +118,16 @@ def run_benchmark(*, baseline: str = "SSARN", dataset: str = "UP",
         root.mkdir(parents=True, exist_ok=True)
         write_json(manifest_path, settings)
 
-    scene = load_scene(dataset, data_dir)
-    split_dir = root / "splits"
-    split_dir.mkdir(exist_ok=True)
-    splits = {}
-    training_sets = set()
+    saved_split_dir = root / "splits"
+    saved_split_dir.mkdir(exist_ok=True)
     for seed in seeds:
-        split_file = split_dir / f"seed_{seed}.tsv"
-        if not split_file.is_file():
-            save_pixel_split(split_file, make_pixel_split(scene.labels, seed=seed, k=k))
-        split = load_pixel_split(split_file)
-        if split.seed != seed or split.k != k:
-            raise ValueError(f"Split metadata mismatch: {split_file}")
-        validate_pixel_split(scene.labels, split)
-        coordinates = tuple(map(tuple, split.train.tolist()))
-        if coordinates in training_sets:
-            raise ValueError(f"Duplicate training split for seed {seed}")
-        training_sets.add(coordinates)
-        splits[seed] = (split_file, file_sha256(split_file))
+        split_file, split_hash = splits[seed]
+        saved_file = saved_split_dir / f"seed_{seed}.tsv"
+        if saved_file.is_file():
+            if file_sha256(saved_file) != split_hash:
+                raise ValueError(f"Saved split differs from fixed split: {saved_file}")
+        else:
+            shutil.copyfile(split_file, saved_file)
 
     rows = []
     for ordinal, seed in enumerate(seeds, start=1):
@@ -191,7 +204,8 @@ def main() -> None:
     parser.add_argument("--dataset", default="UP")
     parser.add_argument("--data", default="data")
     parser.add_argument("--output")
-    parser.add_argument("--seed-start", type=int, default=101)
+    parser.add_argument("--split-dir", help="Directory of fixed TSV files (default: project splits/)")
+    parser.add_argument("--seed-start", type=int, default=90)
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=300)
@@ -202,7 +216,8 @@ def main() -> None:
     args = parser.parse_args()
     run_benchmark(
         baseline=args.baseline, dataset=args.dataset, data_dir=args.data,
-        output_dir=args.output, seed_start=args.seed_start, runs=args.runs,
+        output_dir=args.output, split_dir=args.split_dir,
+        seed_start=args.seed_start, runs=args.runs,
         k=args.k, epochs=args.epochs, learning_rate=args.lr,
         batch_size=args.batch_size, test_batch_size=args.test_batch_size,
         device=args.device)

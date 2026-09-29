@@ -65,7 +65,12 @@ class SSARNTests(unittest.TestCase):
             savemat(root / "PaviaU.mat", {"paviaU": cube})
             savemat(root / "PaviaU_gt.mat", {"paviaU_gt": labels})
             output_dir = root / "benchmark"
+            split_dir = root / "fixed_splits"
+            for seed in (101, 102):
+                save_pixel_split(split_dir / f"up_seed{seed}_k5.tsv",
+                                 make_pixel_split(labels, seed=seed, k=5))
             kwargs = dict(dataset="UP", data_dir=root, output_dir=output_dir,
+                          split_dir=split_dir,
                           seed_start=101, runs=2, k=5, epochs=1,
                           batch_size=15, test_batch_size=16, device="cpu")
             summary = run_benchmark(**kwargs)
@@ -74,6 +79,7 @@ class SSARNTests(unittest.TestCase):
             loaded, settings, rows = load_benchmark(output_dir)
             self.assertEqual(loaded, summary)
             self.assertEqual(settings["seeds"], [101, 102])
+            self.assertEqual(settings["split_source"], "fixed TSV files")
             self.assertNotEqual(rows[0]["split_sha256"], rows[1]["split_sha256"])
             split_a = load_pixel_split(output_dir / "splits" / "seed_101.tsv")
             split_b = load_pixel_split(output_dir / "splits" / "seed_102.tsv")
@@ -88,6 +94,19 @@ class SSARNTests(unittest.TestCase):
             broken.write_text("interrupted\n", encoding="utf-8")
             self.assertEqual(run_benchmark(**kwargs), summary)
             self.assertEqual(len(list((output_dir / "runs" / "seed_102").glob("attempt_*"))), 2)
+
+    def test_benchmark_rejects_missing_fixed_split_before_creating_output(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            labels = np.tile(np.arange(1, 10, dtype=np.uint8)[:, None], (1, 9))
+            savemat(root / "PaviaU.mat", {"paviaU": np.zeros((9, 9, 103), dtype=np.float32)})
+            savemat(root / "PaviaU_gt.mat", {"paviaU_gt": labels})
+            output_dir = root / "benchmark"
+            with self.assertRaises(FileNotFoundError):
+                run_benchmark(dataset="UP", data_dir=root, output_dir=output_dir,
+                              split_dir=root / "empty_splits", seed_start=101,
+                              runs=2, k=5, epochs=1, device="cpu")
+            self.assertFalse(output_dir.exists())
 
 
 if __name__ == "__main__":

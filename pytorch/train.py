@@ -18,8 +18,7 @@ import torch
 from torch.nn import functional as F
 
 from .data import (dataset_spec, file_sha256, load_pixel_split, load_scene,
-                   make_pixel_split, padded_cube, patch_batch, save_pixel_split,
-                   validate_pixel_split)
+                   padded_cube, patch_batch, validate_pixel_split)
 from .ssarn import SSARN
 
 
@@ -108,20 +107,12 @@ def run_baseline(*, baseline: str = "SSARN", dataset: str = "UP", data_dir: str 
     target = resolve_device(device)
     scene = load_scene(dataset, data_dir)
     tracked_split = ROOT / "splits" / f"{dataset.lower()}_seed{seed}_k{k}.tsv"
-    generated_split = ROOT / "outputs" / f"{dataset.lower()}_split_seed{seed}_k{k}.tsv"
     if split_path is not None:
         split_file, split_source = Path(split_path), "provided TSV"
-    elif tracked_split.is_file():
-        split_file, split_source = tracked_split, "project TSV"
-    elif generated_split.is_file():
-        split_file, split_source = generated_split, "existing Python TSV"
     else:
-        split_file, split_source = generated_split, "NumPy PCG64 default_rng"
+        split_file, split_source = tracked_split, "project TSV"
     if not split_file.is_file():
-        if split_path is not None:
-            raise FileNotFoundError(f"Explicit split file does not exist: {split_file}")
-        save_pixel_split(split_file, make_pixel_split(scene.labels, seed=seed, k=k))
-        print(f"Created split: {split_file}", flush=True)
+        raise FileNotFoundError(f"Fixed split file does not exist: {split_file}")
     split = load_pixel_split(split_file)
     if split.seed != seed or split.k != k:
         raise ValueError("Split metadata does not match seed/k")
