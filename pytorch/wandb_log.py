@@ -7,8 +7,6 @@ import csv
 import json
 from pathlib import Path
 
-import wandb
-
 from .data import file_sha256
 
 
@@ -31,6 +29,18 @@ def load_results(output_dir: str | Path) -> tuple[dict, dict, list, list, list]:
     correct = sum(int(row["correct"]) for row in classes)
     if abs(correct / int(config["test_count"]) - metrics["OA"]) > 1e-10:
         raise ValueError("Per-class counts and OA disagree")
+    class_count = len(classes)
+    if len(confusion) != class_count + 1 or any(
+            len(row) != class_count + 1 for row in confusion):
+        raise ValueError("Confusion table has the wrong shape")
+    matrix = [[int(value) for value in row[1:]] for row in confusion[1:]]
+    if sum(map(sum, matrix)) != int(config["test_count"]):
+        raise ValueError("Confusion counts and test count disagree")
+    for index, row in enumerate(classes):
+        if sum(matrix[index]) != int(row["support"]):
+            raise ValueError("Confusion support mismatch")
+        if matrix[index][index] != int(row["correct"]):
+            raise ValueError("Confusion diagonal mismatch")
     digest = file_sha256(directory / "split.tsv")
     if digest != metrics["split_sha256"] or digest != config["split_sha256"]:
         raise ValueError("Split SHA256 mismatch")
@@ -38,10 +48,13 @@ def load_results(output_dir: str | Path) -> tuple[dict, dict, list, list, list]:
 
 
 def log_output(output_dir: str | Path, *, project: str = "ag-meta-hsi",
-               entity: str = "") -> str:
+               entity: str = "", login: bool = True) -> str:
+    import wandb
+
     directory = Path(output_dir)
     metrics, config, history, classes, confusion = load_results(directory)
-    wandb.login()
+    if login:
+        wandb.login()
     with wandb.init(
         project=project, entity=entity or None,
         name=f"{config['baseline']}-{config['dataset']}-seed{config['seed']}-{directory.name}",

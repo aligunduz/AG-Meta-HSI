@@ -33,6 +33,54 @@ Başka bilgisayarda kurulum için
 [PyTorch kurulum sayfasından](https://pytorch.org/get-started/locally/)
 uygun GPU paketini seçin; `numpy`, `scipy` ve `wandb` de gereklidir.
 
+## 10 seed ile ortalama ± standart sapma
+
+PyCharm'da [`run_10_seeds.py`](run_10_seeds.py) dosyasını açıp **Run**
+seçin. Varsayılan seed'ler **101–110**; her biri için yeni bir rastgele
+split, sıfırdan model ve optimizer kullanılır. `UP` için her koşuda
+45 eğitim, 42.731 test merkezi vardır. Bu deney, tek koşu için kayıtlı
+`splits/up_seed93_k5.tsv` dosyasını kullanmaz. İsterseniz
+`SEED_START`, `RUNS`, `DATASET` ve diğer ayarları dosyanın başından
+değiştirin. Öğrenme hızı veya batch boyutunu değiştirerek yeni bir deney
+başlatırken `EXPERIMENT_NAME` için yeni bir ad girin.
+
+Komut satırı karşılığı:
+
+```powershell
+.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 101 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds101-110_k5_e300
+```
+
+Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,
+`runs/seed_N/attempt_001/` koşu dosyaları, `runs.tsv`,
+`summary.json` ve `summary.tsv` bulunur. OA/AA/κ için aritmetik
+ortalama ve **örnek standart sapması (ddof=1)** hem 0–1 hem yüzde
+ölçeğinde saklanır. Aynı ayarlarla yeniden çalıştırıldığında bitmiş
+seed'ler doğrulanıp atlanır; yarıda kalan seed için yeni attempt açılır.
+`LOG_WANDB=True` her seed'i ve toplu özeti W&B'ye yollar.
+Eğitim tamamlandıktan sonra W&B yüklemesini ayrıca tekrarlamak için
+`.venv\Scripts\python -m pytorch.wandb_benchmark --output outputs/<deney_klasörü>`
+komutunu kullanın. Başarıyla yüklenmiş seed'ler işaretlenir ve tekrar
+gönderilmez.
+
+Colab'da [`SSARN_10runs_colab.ipynb`](notebooks/SSARN_10runs_colab.ipynb)
+kullanın. GitHub'dan kodları çeker ve çıktıları Drive'da tutar.
+`RUN_TRAINING=True` iken `EXISTING_OUTPUT_DIR=""` boş kalabilir.
+Yarıda kesilirse aynı seed/ayarlarla defteri yeniden çalıştırın.
+Epoch, öğrenme hızı veya batch boyutunu değiştirerek yeni deney
+başlatırken `EXPERIMENT_NAME` için yeni bir ad girin; aynı klasör yalnızca
+aynı ayarlarla kaldığı yerden devam eder.
+`RUN_TRAINING=False` yalnızca tamamlanmış bir deneyin klasörünü
+`EXISTING_OUTPUT_DIR` olarak verip W&B'ye yüklemek içindir.
+
+Zhu ve arkadaşlarının *Pattern Recognition* 172 (2026) makalesinde
+Tablo 2'nin **SSARN** sütunu UP için OA **83,49±3,46**,
+AA **87,23±2,47**, κ×100 **78,74±4,25** raporlar.
+Makale de sınıf başına 5 rastgele örnek, 9×9 yama ve 10 deneme
+kullanır. Buradaki PyTorch SSARN bağımsız bir uygulamadır;
+ön işleme, ağırlık başlatma ve optimizasyon ayrıntılarının makale
+koduyla aynı olduğu doğrulanmadığı için 10 koşu özeti
+**referans karşılaştırmasıdır**, birebir yeniden üretim değildir.
+
 ## Veri ve sabit ayrım
 
 Veri dosyaları `data/` klasöründe olmalıdır. Kaynak:
@@ -91,7 +139,8 @@ tarafından görülemez.
 ## Doğrulama
 
 `python -m unittest pytorch.test_ssarn` modelin UP/SA/IP çıkış boyutlarını
-ve sentetik veriyle bir epoch'luk eğitimin dosyalarını kontrol eder.
+ve sentetik veriyle bir epoch'luk eğitimin dosyalarını, iki farklı
+split'i, ortalama/standart sapmayı ve kesinti sonrası devamı kontrol eder.
 Gerçek UP verisinde CUDA ileri geçişi, tek optimizer güncellemesi ve
 1 epoch'luk tam değerlendirme doğrulandı. Bu kısa koşunun ölçütleri
 nihai 300 epoch deney sonucu değildir.

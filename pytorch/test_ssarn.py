@@ -1,6 +1,7 @@
 """Small end-to-end checks for the PyTorch baseline."""
 
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,9 +10,11 @@ import numpy as np
 import torch
 from scipy.io import savemat
 
+from .benchmark import run_benchmark
 from .data import load_pixel_split, make_pixel_split, save_pixel_split
 from .ssarn import SSARN
 from .train import run_baseline
+from .wandb_benchmark import load_benchmark
 from .wandb_log import load_results
 
 
@@ -53,6 +56,38 @@ class SSARNTests(unittest.TestCase):
             model = SSARN(103, 9)
             model.load_state_dict(checkpoint["model_state_dict"])
             self.assertEqual(len((output_dir / "confusion.tsv").read_text().splitlines()), 10)
+
+    def test_two_seed_benchmark_has_independent_splits_and_resumes(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            labels = np.tile(np.arange(1, 10, dtype=np.uint8)[:, None], (1, 9))
+            cube = np.random.default_rng(6).normal(size=(9, 9, 103)).astype(np.float32)
+            savemat(root / "PaviaU.mat", {"paviaU": cube})
+            savemat(root / "PaviaU_gt.mat", {"paviaU_gt": labels})
+            output_dir = root / "benchmark"
+            kwargs = dict(dataset="UP", data_dir=root, output_dir=output_dir,
+                          seed_start=101, runs=2, k=5, epochs=1,
+                          batch_size=15, test_batch_size=16, device="cpu")
+            summary = run_benchmark(**kwargs)
+            self.assertEqual(summary["n"], 2)
+            self.assertEqual(summary["seeds"], [101, 102])
+            loaded, settings, rows = load_benchmark(output_dir)
+            self.assertEqual(loaded, summary)
+            self.assertEqual(settings["seeds"], [101, 102])
+            self.assertNotEqual(rows[0]["split_sha256"], rows[1]["split_sha256"])
+            split_a = load_pixel_split(output_dir / "splits" / "seed_101.tsv")
+            split_b = load_pixel_split(output_dir / "splits" / "seed_102.tsv")
+            self.assertFalse(np.array_equal(split_a.train, split_b.train))
+            for name in ("OA", "AA", "kappa"):
+                expected_mean = (float(rows[0][name]) + float(rows[1][name])) / 2
+                self.assertTrue(math.isclose(
+                    summary["metrics"][name]["mean"], expected_mean, abs_tol=1e-12))
+            self.assertEqual(run_benchmark(**kwargs), summary)
+            self.assertEqual(len(list((output_dir / "runs" / "seed_101").glob("attempt_*"))), 1)
+            broken = output_dir / "runs" / "seed_102" / "attempt_001" / "confusion.tsv"
+            broken.write_text("interrupted\n", encoding="utf-8")
+            self.assertEqual(run_benchmark(**kwargs), summary)
+            self.assertEqual(len(list((output_dir / "runs" / "seed_102").glob("attempt_*"))), 2)
 
 
 if __name__ == "__main__":
