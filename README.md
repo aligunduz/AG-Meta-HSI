@@ -1,7 +1,8 @@
-# AG-Meta-HSI — PyTorch SSARN baseline
+# AG-Meta-HSI — PyTorch yöntem karşılaştırması
 
-Bu proje, hiperspektral görüntüler için **supervised SSARN** sınıflandırması
-çalıştırır. `BASELINE="SSARN"`; `DATASET` olarak `UP` (Pavia University),
+Bu proje, hiperspektral görüntüler için kayıtlı PyTorch yöntemlerini aynı
+sabit split'lerde karşılaştırır. Şu anda **supervised SSARN** uygulanmıştır.
+`METHOD="SSARN"`; `DATASET` olarak `UP` (Pavia University),
 `SA` (Salinas) veya `IP` (Indian Pines) seçilebilir. QLOML episodic
 meta-öğrenme uygulanmaz.
 
@@ -9,7 +10,7 @@ meta-öğrenme uygulanmaz.
 
 Proje klasörünü PyCharm'da açın. Interpreter olarak
 `.venv\Scripts\python.exe` seçin. [`run_pytorch.py`](run_pytorch.py)
-dosyasının üstündeki `BASELINE`, `DATASET`, `DEVICE` ve diğer ayarları
+dosyasının üstündeki `METHOD`, `DATASET`, `DEVICE` ve diğer ayarları
 düzenleyin; ardından dosyaya sağ tıklayıp **Run 'run_pytorch'** seçin.
 Varsayılan ayarlar `UP`, seed `93`, sınıf başına `5` eğitim pikseli,
 `300` epoch ve GPU'dur. Eğitim tamamlandığında `LOG_WANDB=True` ile
@@ -20,9 +21,9 @@ Terminalde kontrol veya tam eğitim:
 
 ```powershell
 .venv\Scripts\python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-.venv\Scripts\python -m pytorch.train --check --dataset UP --device gpu
-.venv\Scripts\python -m pytorch.train --smoke --dataset UP --device gpu
-.venv\Scripts\python -m pytorch.train --train --baseline SSARN --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_ssarn_up_seed93
+.venv\Scripts\python -m pytorch.run_method --check --method SSARN --dataset UP --device gpu
+.venv\Scripts\python -m pytorch.run_method --smoke --method SSARN --dataset UP --device gpu
+.venv\Scripts\python -m pytorch.run_method --train --method SSARN --dataset UP --device gpu --epochs 300 --seed 93 --k 5 --output outputs/pytorch_ssarn_up_seed93
 ```
 
 `--check` tek yamanın ileri geçişini; `--smoke` bir Adam güncellemesini
@@ -46,7 +47,7 @@ başlatırken `EXPERIMENT_NAME` için yeni bir ad girin.
 Komut satırı karşılığı:
 
 ```powershell
-.venv\Scripts\python -m pytorch.benchmark --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds90-99_k5_e300
+.venv\Scripts\python -m pytorch.benchmark --method SSARN --dataset UP --seed-start 90 --runs 10 --k 5 --epochs 300 --device gpu --data data --output outputs/benchmark_ssarn_up_seeds90-99_k5_e300
 ```
 
 Çıktı klasöründe `experiment.json`, seed başına `splits/seed_N.tsv`,
@@ -67,7 +68,9 @@ komutunu kullanın. Yüklenen özetin bağlantısı kaydedilir; aynı deney
 yeniden çalıştırıldığında mevcut W&B koşusu güncellenir.
 
 Colab'da [`SSARN_10runs_colab.ipynb`](notebooks/SSARN_10runs_colab.ipynb)
-kullanın. GitHub'dan kodları çeker ve çıktıları Drive'da tutar.
+kullanın. `METHOD` alanı kayıtlı yöntemler arasında seçim yapar; defterin
+kodunu her yöntem için değiştirmeye gerek yoktur. GitHub'dan kodları çeker ve
+çıktıları Drive'da tutar.
 `RUN_TRAINING=True` iken `EXISTING_OUTPUT_DIR=""` boş kalabilir.
 Yarıda kesilirse aynı seed/ayarlarla defteri yeniden çalıştırın.
 Epoch, öğrenme hızı veya batch boyutunu değiştirerek yeni deney
@@ -75,6 +78,16 @@ başlatırken `EXPERIMENT_NAME` için yeni bir ad girin; aynı klasör yalnızca
 aynı ayarlarla kaldığı yerden devam eder.
 `RUN_TRAINING=False` yalnızca tamamlanmış bir deneyin klasörünü
 `EXISTING_OUTPUT_DIR` olarak verip W&B'ye yüklemek içindir.
+
+Yeni yöntem eklemek için yönteme ait çalıştırıcıyı yazıp
+[`pytorch/methods.py`](pytorch/methods.py) dosyasına kaydedin. Çalıştırıcı
+`run_baseline` ile aynı argümanları kabul etmeli ve benchmark'ın okuduğu
+`config.json`, `metrics.json`, `split.tsv`, `training.tsv`,
+`class_accuracy.tsv`, `confusion.tsv` ile checkpoint'i üretmelidir.
+`source_files` listesi koşunun `config.json` dosyasındaki `source_sha256`
+anahtarlarıyla eşleşmelidir. Yeni yöntem kaydedilince aynı defterde yalnız
+`METHOD` değeri ve gerekiyorsa `METHOD_CONFIG_JSON` içindeki yöntem ayarları
+değiştirilir. Şu anda kayıtlı tek yöntem SSARN'dır.
 
 Zhu ve arkadaşlarının *Pattern Recognition* 172 (2026) makalesinde
 Tablo 2'nin **SSARN** sütunu UP için OA **83,49±3,46**,
@@ -136,7 +149,7 @@ confusion tablosu yazılır. Veri dosyaları ve checkpoint yüklenmez.
 [`notebooks/SSARN_colab.ipynb`](notebooks/SSARN_colab.ipynb) dosyasını
 Colab'da Python 3 ve GPU çalışma ortamıyla açın. Defter
 [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlar,
-`BASELINE`/`DATASET` seçimlerine göre eğitir, koşu dosyalarını
+`METHOD`/`DATASET` seçimlerine göre eğitir, koşu dosyalarını
 Google Drive'a ve ölçütleri W&B'ye kaydeder. Defterin kaynağını
 değiştirirseniz `python scripts/build_colab_assets.py` ile yeniden üretin.
 Yerel değişiklikler GitHub'a siz commit ve push edene kadar Colab

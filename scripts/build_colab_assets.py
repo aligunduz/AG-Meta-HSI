@@ -18,9 +18,9 @@ def code(source):
 
 
 cells = [
-    markdown("""# AG-Meta-HSI — PyTorch SSARN Colab
+    markdown("""# AG-Meta-HSI — PyTorch yöntem koşusu
 
-Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayıp **PyTorch SSARN supervised baseline** koşar. `BASELINE="SSARN"`; `DATASET` olarak **UP**, **SA** veya **IP** seçin. Sınıf başına `K=5` eğitim pikseli, kalan bütün etiketli pikseller test için kullanılır. Son epoch checkpoint'i kaydedildikten sonra OA, AA, kappa ve sınıf doğrulukları hesaplanıp W&B'ye yazılır.
+Bu defter, [GitHub deposunu](https://github.com/aligunduz/AG-Meta-HSI) klonlayıp `METHOD` ile seçilen kayıtlı PyTorch yöntemini koşar. `DATASET` olarak **UP**, **SA** veya **IP** seçin. Sınıf başına `K=5` eğitim pikseli, kalan bütün etiketli pikseller test için kullanılır. Son epoch checkpoint'i kaydedildikten sonra OA, AA, kappa ve sınıf doğrulukları hesaplanıp W&B'ye yazılır. Yeni bir yöntem kodu kayıt sistemine eklendiğinde defter değiştirilmez.
 
 **Başlamadan önce:** Colab'da *Runtime → Change runtime type → T4 GPU* (veya başka bir NVIDIA GPU) seçin. İki `.mat` dosyasını Google Drive'daki `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter GitHub'dan klonladığı için **yerel değişiklikleriniz ancak siz commit ve push ettikten sonra Colab'a ulaşır**. Defter otomatik commit/push yapmaz.
 
@@ -35,7 +35,8 @@ Veri: [UPV/EHU hyperspectral scenes](https://www.ehu.eus/ccwintco/index.php/Hype
 `WANDB_ENTITY` kişisel hesapta boş kalabilir; bir takım workspace'ine yazacaksanız takımın entity adını girin. W&B API anahtarını deftere yazmayın; giriş penceresi açılır. Çıktılar Drive'da kalır; veri ve checkpoint W&B'ye yüklenmez.
 """),
     code("""#@title Koşu ayarları
-BASELINE = "SSARN" #@param {type:"string"}
+METHOD = "SSARN" #@param {type:"string"}
+METHOD_CONFIG_JSON = "{}" #@param {type:"string"}
 DATASET = "UP" #@param ["UP", "SA", "IP"]
 SEED = 93 #@param {type:"integer"}
 K = 5 #@param {type:"integer"}
@@ -56,9 +57,12 @@ WANDB_ENTITY = "" #@param {type:"string"}
 RUN_TRAINING = True #@param {type:"boolean"}
 EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
-BASELINE = BASELINE.strip().upper()
+METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
-assert BASELINE == "SSARN", "Şimdilik yalnız SSARN baseline uygulanmıştır."
+assert METHOD, "METHOD boş olamaz."
+import json
+METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)
+assert isinstance(METHOD_CONFIG, dict), "METHOD_CONFIG_JSON bir JSON nesnesi olmalı"
 assert DATASET in {"UP", "SA", "IP"}
 assert K > 0 and EPOCHS > 0 and BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0
 assert LEARNING_RATE > 0 and DEVICE in {"gpu", "cpu"}
@@ -87,6 +91,10 @@ if RUN_TRAINING:
     assert (repo_dir / "pytorch" / "train.py").is_file(), (
         "PyTorch kodu GitHub deposunda yok. PyCharm'daki yerel değişiklikleri "
         "siz commit ve push ettikten sonra Colab'ı yeniden çalıştırın.")
+    sys.path.insert(0, str(repo_dir))
+    from pytorch.methods import available_methods
+    assert METHOD in available_methods(), (
+        f"Yöntem kayıtlı değil: {METHOD}. Kullanılabilir: {available_methods()}")
     repo_commit = subprocess.check_output(
         ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
     print("Proje:", repo_dir, "commit:", repo_commit)
@@ -125,15 +133,16 @@ if RUN_TRAINING:
         assert Path(SPLIT_PATH).expanduser().is_file(), f"Split bulunamadı: {SPLIT_PATH}"
     print(DATASET, "verisi hazır:", data_dir)
 """),
-    code("""#@title PyTorch SSARN baseline koşusu
+    code("""#@title PyTorch yöntem koşusu
 if RUN_TRAINING:
     output_root = Path(DRIVE_RUNS_DIR).expanduser()
     output_root.mkdir(parents=True, exist_ok=True)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
-    output_dir = output_root / BASELINE.lower() / DATASET.lower() / run_id
+    output_dir = output_root / METHOD.lower() / DATASET.lower() / run_id
     command = [
-        sys.executable, "-m", "pytorch.train",
-        "--train", "--baseline", BASELINE, "--dataset", DATASET,
+        sys.executable, "-m", "pytorch.run_method",
+        "--train", "--method", METHOD, "--method-config", METHOD_CONFIG_JSON,
+        "--dataset", DATASET,
         "--data", str(data_dir), "--output", str(output_dir),
         "--seed", str(SEED), "--k", str(K), "--epochs", str(EPOCHS),
         "--lr", str(LEARNING_RATE), "--batch-size", str(BATCH_SIZE),

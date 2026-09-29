@@ -12,6 +12,7 @@ from scipy.io import savemat
 
 from .benchmark import run_benchmark
 from .data import load_pixel_split, make_pixel_split, save_pixel_split
+from .methods import available_methods, get_method
 from .ssarn import SSARN
 from .train import run_baseline
 from .wandb_benchmark import load_benchmark
@@ -19,6 +20,12 @@ from .wandb_log import load_results
 
 
 class SSARNTests(unittest.TestCase):
+    def test_method_registry(self):
+        self.assertIn("SSARN", available_methods())
+        self.assertIs(get_method("ssarn").runner(), run_baseline)
+        with self.assertRaisesRegex(ValueError, "not implemented"):
+            get_method("UNREGISTERED")
+
     def test_output_shapes_for_supported_band_counts(self):
         for bands, classes in ((103, 9), (204, 16), (200, 16)):
             with self.subTest(bands=bands):

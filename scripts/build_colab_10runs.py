@@ -1,4 +1,4 @@
-"""Generate the resumable 10-seed SSARN Colab notebook."""
+"""Generate the reusable 10-seed method comparison Colab notebook."""
 
 import json
 from pathlib import Path
@@ -18,16 +18,19 @@ def code(source):
 
 
 cells = [
-    markdown("""# SSARN — 10 bağımsız seed ile değerlendirme
+    markdown("""# AG-Meta-HSI — 10 sabit split ile yöntem değerlendirmesi
 
-Bu defter **PyTorch SSARN supervised baseline** için `splits/` altında önceden sabitlenmiş 10 split'i okur. Varsayılan UP seed seti **90–99**, sınıf başına `k=5` eğitim pikselidir. Model ve optimizer her koşuda yeniden başlatılır. OA, AA ve κ için **10 koşunun aritmetik ortalaması ± örnek standart sapması** hesaplanır. Her seed'in split dosyası, checkpoint'i ve ölçütleri ayrı saklanır. Aynı deney klasöründe defter yeniden çalıştırılırsa tamamlanmış seed'ler tekrar eğitilmez; yarım kalan seed için yeni bir attempt açılır.
+Bu defter `METHOD` ile seçilen kayıtlı PyTorch yöntemini `splits/` altında önceden sabitlenmiş 10 split üzerinde çalıştırır. Varsayılan UP seed seti **90–99**, sınıf başına `k=5` eğitim pikselidir. Yöntem ve optimizer her koşuda yeniden başlatılır. OA, AA ve κ için **10 koşunun aritmetik ortalaması ± örnek standart sapması** hesaplanır. Her seed'in split dosyası, checkpoint'i ve ölçütleri ayrı saklanır. Aynı deney klasöründe defter yeniden çalıştırılırsa tamamlanmış seed'ler tekrar eğitilmez; yarım kalan seed için yeni bir attempt açılır. Yeni bir yöntem kodu `pytorch/methods.py` kayıt sistemine eklendiğinde bu defter değiştirilmez.
 
 Makalenin UP Tablo 2 **SSARN** sütunu: OA **83,49±3,46**, AA **87,23±2,47**, κ×100 **78,74±4,25**. Makalede her sınıftan 5 rastgele örnek, 9×9 yama ve 10 denemenin ortalaması kullanılmıştır. Buradaki kod bağımsız bir PyTorch uygulamasıdır; mimari ayrıntılarının, ön işlemenin ve optimizasyon ayarlarının makale koduyla birebir aynı olduğu doğrulanmadığı için sayılar bir **referans karşılaştırmasıdır**, kesin yeniden üretim iddiası değildir.
 
 Colab'da GPU çalışma ortamı seçin. Seçtiğiniz veri kümesinin iki `.mat` dosyasını `DRIVE_DATA_DIR` içine koyun veya `DATA_SOURCE="upload"` seçin. Defter kodu [GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) çeker; yeni yerel kodları Colab'ın görmesi için **siz commit ve push etmelisiniz**. Defter commit/push yapmaz. W&B giriş anahtarını hücrelere yazmayın.
 """),
     code("""#@title Deney ayarları
-BASELINE = "SSARN" #@param {type:"string"}
+import json
+
+METHOD = "SSARN" #@param {type:"string"}
+METHOD_CONFIG_JSON = "{}" #@param {type:"string"}
 DATASET = "UP" #@param ["UP", "SA", "IP"]
 SEED_START = 90 #@param {type:"integer"}
 RUNS = 10 #@param {type:"integer"}
@@ -50,9 +53,11 @@ LOG_WANDB = True #@param {type:"boolean"}
 RUN_TRAINING = True #@param {type:"boolean"}
 EXISTING_OUTPUT_DIR = "" #@param {type:"string"}
 
-BASELINE = BASELINE.strip().upper()
+METHOD = METHOD.strip().upper()
 DATASET = DATASET.strip().upper()
-assert BASELINE == "SSARN" and DATASET in {"UP", "SA", "IP"}
+assert METHOD and DATASET in {"UP", "SA", "IP"}
+METHOD_CONFIG = json.loads(METHOD_CONFIG_JSON)
+assert isinstance(METHOD_CONFIG, dict), "METHOD_CONFIG_JSON bir JSON nesnesi olmalı"
 assert RUNS >= 2 and SEED_START >= 0 and K > 0 and EPOCHS > 0
 assert BATCH_SIZE >= 2 and TEST_BATCH_SIZE > 0 and LEARNING_RATE > 0
 assert DEVICE in {"gpu", "cpu"} and DATA_SOURCE in {"drive", "upload"}
@@ -83,6 +88,11 @@ else:
 assert (repo_dir / "pytorch" / "benchmark.py").is_file(), (
     "10 koşu kodu henüz GitHub'da yok. PyCharm'daki değişiklikleri siz commit "
     "ve push ettikten sonra Colab'ı yeniden çalıştırın.")
+import sys
+sys.path.insert(0, str(repo_dir))
+from pytorch.methods import available_methods
+assert METHOD in available_methods(), (
+    f"Yöntem kayıtlı değil: {METHOD}. Kullanılabilir: {available_methods()}")
 repo_commit = subprocess.check_output(
     ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
 print("Kullanılan Git commit:", repo_commit)
@@ -122,12 +132,13 @@ if RUN_TRAINING:
     code("""#@title 10 seed koşusu (yarıda kalırsa aynı hücreyi yeniden çalıştırın)
 if RUN_TRAINING:
     experiment_name = (EXPERIMENT_NAME.strip() or
-                       f"{BASELINE.lower()}_{DATASET.lower()}_seeds{SEEDS[0]}-{SEEDS[-1]}_k{K}")
+                       f"{METHOD.lower()}_{DATASET.lower()}_seeds{SEEDS[0]}-{SEEDS[-1]}_k{K}")
     experiment_dir = (Path(DRIVE_RUNS_DIR).expanduser() / "benchmarks" /
                       experiment_name)
     command = [
         sys.executable, "-m", "pytorch.benchmark",
-        "--baseline", BASELINE, "--dataset", DATASET,
+        "--method", METHOD, "--method-config", METHOD_CONFIG_JSON,
+        "--dataset", DATASET,
         "--data", str(data_dir), "--output", str(experiment_dir),
         "--seed-start", str(SEED_START), "--runs", str(RUNS),
         "--k", str(K), "--epochs", str(EPOCHS), "--lr", str(LEARNING_RATE),
@@ -156,7 +167,8 @@ print("\\nOrtalama ± örnek std (n={})".format(summary["n"]))
 for name in ("OA", "AA", "kappa"):
     values = summary["metrics"][name]
     print(f"{name}: {values['mean_percent']:.2f} ± {values['std_percent']:.2f}")
-print("Makale Tablo 2 SSARN: OA 83.49±3.46 | AA 87.23±2.47 | κ×100 78.74±4.25")
+if METHOD == "SSARN" and DATASET == "UP":
+    print("Makale Tablo 2 SSARN: OA 83.49±3.46 | AA 87.23±2.47 | κ×100 78.74±4.25")
 print("Ayrıntılı dosyalar:", experiment_dir)
 """),
     code("""#@title 10 koşu özetini tek W&B koşusuna kaydet

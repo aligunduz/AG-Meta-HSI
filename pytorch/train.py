@@ -91,10 +91,13 @@ def run_baseline(*, baseline: str = "SSARN", dataset: str = "UP", data_dir: str 
                  split_path: str | Path | None = None, output_dir: str | Path | None = None,
                  seed: int = 93, k: int = 5, epochs: int = 300, learning_rate: float = 0.001,
                  batch_size: int = 15, test_batch_size: int = 32, device: str = "gpu",
-                 mode: str = "check") -> dict:
+                 mode: str = "check", method_config: dict | None = None) -> dict:
     baseline, dataset = baseline.upper(), dataset.upper()
     if baseline != "SSARN":
         raise ValueError("Only SSARN baseline is implemented")
+    method_config = {} if method_config is None else method_config
+    if method_config:
+        raise ValueError("SSARN does not accept method-specific settings")
     _, _, _, _, bands, classes = dataset_spec(dataset)
     if mode not in ("check", "smoke", "train"):
         raise ValueError("mode must be check, smoke, or train")
@@ -169,6 +172,7 @@ def run_baseline(*, baseline: str = "SSARN", dataset: str = "UP", data_dir: str 
     destination.mkdir(parents=True)
     config = {
         "model": "SSARN-Fig2-assumptions-v1", "baseline": baseline,
+        "method_config": method_config,
         "framework": "PyTorch", "dataset": dataset, "seed": seed, "k": k,
         "split_seed": split.seed, "split_sha256": split_digest,
         "split_source": split_source,
