@@ -69,12 +69,11 @@ GPU desteği henüz yoktur. İlk çalıştırmada Julia derlemesi zaman alabilir
 ### Colab, veri kümesi seçimi ve W&B
 
 [`notebooks/SSARN_colab.ipynb`](notebooks/SSARN_colab.ipynb) dosyasını Google
-Colab'da açın. Henüz GitHub'a gönderilmemiş bu kodu kullanmak için defterin
-istediği [`notebooks/AG-Meta-HSI-colab.zip`](notebooks/AG-Meta-HSI-colab.zip)
-dosyasını yükleyin. ZIP, yalnızca Julia proje ve kaynak dosyalarını içerir;
-veri ve eski deney sonuçları içermez. Kaynak kod değişince ZIP'i
-`python scripts/build_colab_assets.py` ile yeniden üretin. Kod GitHub'a
-gönderildikten sonra defterde `REPO_SOURCE="github"` da seçilebilir.
+Colab'da açın. Defter kodu doğrudan
+[`aligunduz/AG-Meta-HSI`](https://github.com/aligunduz/AG-Meta-HSI) deposundan
+klonlar; aynı Colab oturumunda yeniden çalıştırılırsa `git pull --ff-only`
+ile günceller. Defter kaynağı değişince `python scripts/build_colab_assets.py`
+komutuyla `.ipynb` dosyasını yeniden üretin.
 
 Defterde `BASELINE="SSARN"`, `DATASET="UP"`, `"SA"` veya `"IP"` ayarlayın.
 Şimdilik yalnızca SSARN uygulanmıştır; başka baseline adı açık hata verir.

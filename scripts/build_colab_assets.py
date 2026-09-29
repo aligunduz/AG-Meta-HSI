@@ -1,7 +1,6 @@
-"""Build the Colab notebook and a source-only ZIP usable before a Git push."""
+"""Build the Colab notebook that clones the GitHub repository."""
 
 import json
-import zipfile
 from pathlib import Path
 
 
@@ -24,7 +23,7 @@ cells = [
 
 Bu defter Julia/Lux ile **SSARN** supervised baseline'ını çalıştırır. `DATASET` için **UP**, **SA** veya **IP** seçebilirsiniz. Her sınıftan `K=5` eğitim merkezi seçilir; kalan etiketli pikseller test edilir. Koşu tamamlandıktan sonra OA, AA, kappa, sınıf doğrulukları ve eğitim kaybı W&B'ye yazılır.
 
-**İlk kullanım:** Bu defterle birlikte verilen `AG-Meta-HSI-colab.zip` dosyasını ve seçtiğiniz veri kümesinin iki `.mat` dosyasını hazırlayın. Veri dosyalarını [UPV/EHU kaynağından](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes) indirebilirsiniz. `DATA_SOURCE="drive"` seçerseniz dosyaları `DRIVE_DATA_DIR` klasörüne koyun; `"upload"` seçerseniz yükleme penceresi açılır. Sonuçlar Google Drive'da saklanır.
+**İlk kullanım:** Defter proje kodunu [AG-Meta-HSI GitHub deposundan](https://github.com/aligunduz/AG-Meta-HSI) klonlar. Seçtiğiniz veri kümesinin iki `.mat` dosyasını hazırlayın. Veri dosyalarını [UPV/EHU kaynağından](https://www.ehu.eus/ccwintco/index.php/Hyperspectral_Remote_Sensing_Scenes) indirebilirsiniz. `DATA_SOURCE="drive"` seçerseniz dosyaları `DRIVE_DATA_DIR` klasörüne koyun; `"upload"` seçerseniz yükleme penceresi açılır. Sonuçlar Google Drive'da saklanır.
 
 | DATASET | Gerekli dosyalar | Bant / sınıf |
 |---|---|---|
@@ -46,7 +45,6 @@ LEARNING_RATE = 0.001 #@param {type:"number"}
 BATCH_SIZE = 15 #@param {type:"integer"}
 TEST_BATCH_SIZE = 32 #@param {type:"integer"}
 
-REPO_SOURCE = "zip" #@param ["zip", "github"]
 DATA_SOURCE = "drive" #@param ["drive", "upload"]
 DRIVE_DATA_DIR = "/content/drive/MyDrive/AG-Meta-HSI/data" #@param {type:"string"}
 DRIVE_RUNS_DIR = "/content/drive/MyDrive/AG-Meta-HSI/runs" #@param {type:"string"}
@@ -67,26 +65,25 @@ assert LEARNING_RATE > 0 and WANDB_PROJECT.strip()
 from google.colab import drive, files
 from pathlib import Path
 from datetime import datetime, timezone
-import io, os, shutil, subprocess, sys, uuid, zipfile
+import shutil, subprocess, sys, uuid
 
 drive.mount("/content/drive")
 repo_dir = Path("/content/AG-Meta-HSI")
-if RUN_TRAINING and not (repo_dir / "Project.toml").is_file():
-    if REPO_SOURCE == "zip":
-        print("AG-Meta-HSI-colab.zip dosyasını yükleyin.")
-        uploaded = files.upload()
-        archives = [name for name in uploaded if name.endswith(".zip")]
-        assert len(archives) == 1, "Tam olarak bir proje ZIP dosyası yükleyin."
-        with zipfile.ZipFile(io.BytesIO(uploaded[archives[0]])) as archive:
-            for item in archive.infolist():
-                parts = Path(item.filename).parts
-                assert parts and parts[0] == "AG-Meta-HSI" and ".." not in parts, "Geçersiz ZIP yolu"
-            archive.extractall("/content")
-    else:
-        subprocess.run(["git", "clone", "https://github.com/aligunduz/AG-Meta-HSI.git", str(repo_dir)], check=True)
+repo_url = "https://github.com/aligunduz/AG-Meta-HSI.git"
+repo_commit = None
 if RUN_TRAINING:
-    assert (repo_dir / "scripts" / "run_baseline.jl").is_file(), "Yeni baseline kodu bulunamadı; güncel ZIP veya GitHub sürümünü kullanın."
-    print("Proje:", repo_dir)
+    if not repo_dir.exists():
+        subprocess.run(["git", "clone", repo_url, str(repo_dir)], check=True)
+    else:
+        assert (repo_dir / ".git").is_dir(), f"{repo_dir} bir Git deposu değil"
+        origin_url = subprocess.check_output(
+            ["git", "-C", str(repo_dir), "remote", "get-url", "origin"], text=True).strip()
+        assert origin_url.rstrip("/").removesuffix(".git") == repo_url.removesuffix(".git"), f"Beklenmeyen GitHub deposu: {origin_url}"
+        subprocess.run(["git", "-C", str(repo_dir), "pull", "--ff-only"], check=True)
+    assert (repo_dir / "scripts" / "run_baseline.jl").is_file(), "Yeni baseline kodu bulunamadı; GitHub deposunu güncelleyin."
+    repo_commit = subprocess.check_output(
+        ["git", "-C", str(repo_dir), "rev-parse", "HEAD"], text=True).strip()
+    print("Proje:", repo_dir, "commit:", repo_commit)
 """),
     code("""#@title Julia ve W&B kurulumu
 subprocess.run([sys.executable, "-m", "pip", "install", "-q", "wandb"], check=True)
@@ -180,6 +177,8 @@ wb_config = {
     "source_sha256": run_config["source_sha256"],
     "data_sha256": run_config["data_sha256"],
 }
+if repo_commit:
+    wb_config["git_commit"] = repo_commit
 with wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY or None,
                 name=f"{saved_baseline}-{saved_dataset}-seed{run_config['seed']}-{output_dir.name}",
                 group=f"{saved_baseline}-{saved_dataset}",
@@ -223,13 +222,4 @@ notebook = {
 (DEST / "SSARN_colab.ipynb").write_text(
     json.dumps(notebook, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
-with zipfile.ZipFile(DEST / "AG-Meta-HSI-colab.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-    project_files = [ROOT / "Project.toml"]
-    if (ROOT / "Manifest.toml").is_file():
-        project_files.append(ROOT / "Manifest.toml")
-    for file in [*project_files, *sorted((ROOT / "src").glob("*.jl")),
-                 *sorted((ROOT / "scripts").glob("*.jl"))]:
-        archive.write(file, Path("AG-Meta-HSI") / file.relative_to(ROOT))
-
 print(DEST / "SSARN_colab.ipynb")
-print(DEST / "AG-Meta-HSI-colab.zip")
