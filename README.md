@@ -57,11 +57,15 @@ ortalama ve **örnek standart sapması (ddof=1)** hem 0–1 hem yüzde
 ölçeğinde saklanır. Aynı ayarlarla yeniden çalıştırıldığında bitmiş
 seed'ler doğrulanıp atlanır; yarıda kalan seed için yeni attempt açılır.
 `LOG_WANDB=True` yalnızca toplu özeti tek bir W&B koşusuna yollar;
-seed bazındaki sayılar o koşunun tablosunda bulunur.
+seed bazındaki sayılar o koşunun tablosunda bulunur. Karşılaştırma için
+ortalama OA/AA/κ önceki tek koşularla aynı `test/OA`, `test/AA`,
+`test/kappa` ve yüzde alanlarına yazılır; standart sapmalar
+`test/OA_std_percent`, `test/AA_std_percent` ve
+`test/kappa_std_x100` alanlarında görünür.
 Eğitim tamamlandıktan sonra W&B yüklemesini ayrıca tekrarlamak için
 `.venv\Scripts\python -m pytorch.wandb_benchmark --output outputs/<deney_klasörü>`
 komutunu kullanın. Yüklenen özetin bağlantısı kaydedilir; aynı deney
-yeniden çalıştırıldığında yeni bir W&B koşusu açılmaz.
+yeniden çalıştırıldığında mevcut W&B koşusu güncellenir.
 
 Colab'da [`SSARN_10runs_colab.ipynb`](notebooks/SSARN_10runs_colab.ipynb)
 kullanın. GitHub'dan kodları çeker ve çıktıları Drive'da tutar.

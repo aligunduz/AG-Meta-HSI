@@ -8,6 +8,7 @@ import json
 import math
 import statistics
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .wandb_log import load_results
 
@@ -47,11 +48,12 @@ def log_benchmark(directory: str | Path, *, project: str = "ag-meta-hsi",
     root = Path(directory)
     summary, settings, rows = load_benchmark(root)
     marker = root / "wandb_summary_url.txt"
-    if marker.is_file() and marker.read_text(encoding="utf-8").strip():
-        return marker.read_text(encoding="utf-8").strip()
+    saved_url = marker.read_text(encoding="utf-8").strip() if marker.is_file() else ""
+    run_id = urlparse(saved_url).path.rstrip("/").split("/")[-1] if saved_url else None
     wandb.login()
     with wandb.init(
         project=project, entity=entity or None,
+        id=run_id, resume="must" if run_id else None,
         name=f"{settings['baseline']}-{settings['dataset']}-{summary['n']}runs-"
              f"{settings['seeds'][0]}-{settings['seeds'][-1]}",
         group=f"{settings['baseline']}-{settings['dataset']}",
@@ -66,13 +68,19 @@ def log_benchmark(directory: str | Path, *, project: str = "ag-meta-hsi",
                 100 * float(row["AA"]), 100 * float(row["kappa"]),
                 row["split_sha256"], row["output_dir"],
             ])
-        run.log({"benchmark/per_seed_metrics": wandb.Table(
-            columns=["seed", "OA_percent", "AA_percent", "kappa_x100",
-                     "split_sha256", "output_dir"], data=table_rows)})
+        metrics_for_wandb = {}
         for name in ("OA", "AA", "kappa"):
             values = summary["metrics"][name]
-            run.summary[f"benchmark/{name}_mean_percent"] = values["mean_percent"]
-            run.summary[f"benchmark/{name}_std_percent"] = values["std_percent"]
+            metrics_for_wandb[f"test/{name}"] = values["mean"]
+            percent_name = "kappa_x100" if name == "kappa" else f"{name}_percent"
+            std_name = "kappa_std_x100" if name == "kappa" else f"{name}_std_percent"
+            metrics_for_wandb[f"test/{percent_name}"] = values["mean_percent"]
+            metrics_for_wandb[f"test/{std_name}"] = values["std_percent"]
+            metrics_for_wandb[f"benchmark/{name}_mean_percent"] = values["mean_percent"]
+            metrics_for_wandb[f"benchmark/{name}_std_percent"] = values["std_percent"]
+        run.log({**metrics_for_wandb, "benchmark/per_seed_metrics": wandb.Table(
+            columns=["seed", "OA_percent", "AA_percent", "kappa_x100",
+                     "split_sha256", "output_dir"], data=table_rows)})
         run.summary["benchmark/n"] = summary["n"]
         url = run.url
     if url:
