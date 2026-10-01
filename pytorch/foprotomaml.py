@@ -39,6 +39,23 @@ def ssarn_embedding(net: SSARN, x: torch.Tensor) -> torch.Tensor:
     return x.mean(dim=(-2, -1))
 
 
+def set_support_stats(net: SSARN, x: torch.Tensor) -> None:
+    """Estimate BN moments from support only; treat them as gradient constants."""
+    batchnorms = [module for module in net.modules()
+                  if isinstance(module, (nn.BatchNorm2d, nn.BatchNorm3d))]
+    for module in batchnorms:
+        module.reset_running_stats()
+        module.momentum = None
+    net.train()
+    try:
+        with torch.no_grad():
+            ssarn_embedding(net, x)
+    finally:
+        for module in batchnorms:
+            module.momentum = 0.1
+        net.eval()
+
+
 class PrototypeHead(nn.Module):
     """Task-specific linear head initialized from Euclidean prototypes."""
 
@@ -48,19 +65,35 @@ class PrototypeHead(nn.Module):
         self.weight = nn.Parameter((2 * detached).clone())
         self.bias = nn.Parameter((-detached.square().sum(dim=1)).clone())
 
+    @classmethod
+    def from_initialization(cls, weight: torch.Tensor, bias: torch.Tensor) -> PrototypeHead:
+        head = cls.__new__(cls)
+        nn.Module.__init__(head)
+        head.weight = nn.Parameter(weight.detach().clone())
+        head.bias = nn.Parameter(bias.detach().clone())
+        return head
+
     def forward(self, embeddings: torch.Tensor) -> torch.Tensor:
         return F.linear(embeddings, self.weight, self.bias)
+
+
+def prototype_initialization(backbone: SSARN, support_x: torch.Tensor,
+                             local_y: torch.Tensor, ways: int
+                             ) -> tuple[torch.Tensor, torch.Tensor]:
+    """Keep the support embedding -> centroid -> W0,b0 path differentiable."""
+    embeddings = ssarn_embedding(backbone, support_x)
+    prototypes = torch.stack([embeddings[local_y == index].mean(dim=0)
+                              for index in range(ways)])
+    if not torch.isfinite(prototypes).all().item():
+        raise RuntimeError("Nonfinite or empty support prototype")
+    return 2 * prototypes, -prototypes.square().sum(dim=1)
 
 
 def prototype_head(backbone: SSARN, support_x: torch.Tensor,
                    local_y: torch.Tensor, ways: int) -> PrototypeHead:
     with torch.no_grad():
-        embeddings = ssarn_embedding(backbone, support_x)
-        prototypes = torch.stack([embeddings[local_y == index].mean(dim=0)
-                                  for index in range(ways)])
-    if not torch.isfinite(prototypes).all().item():
-        raise RuntimeError("Nonfinite or empty support prototype")
-    return PrototypeHead(prototypes)
+        weight, bias = prototype_initialization(backbone, support_x, local_y, ways)
+    return PrototypeHead.from_initialization(weight, bias)
 
 
 def backbone_parameters(net: SSARN) -> list[nn.Parameter]:
@@ -97,14 +130,18 @@ def make_task_pool(train_records: np.ndarray, *, classes: int, meta: dict,
 
 
 def adapt_task(meta_model: SSARN, support_x: torch.Tensor, local_y: torch.Tensor,
-               *, ways: int, steps: int, lr: float) -> tuple[SSARN, PrototypeHead,
-                                                               torch.optim.Optimizer, float]:
+               *, ways: int, steps: int, lr: float,
+               initialization: tuple[torch.Tensor, torch.Tensor] | None = None
+               ) -> tuple[SSARN, PrototypeHead, torch.optim.Optimizer, float]:
     adapted = copy.deepcopy(meta_model)
-    adapted.train()
-    head = prototype_head(adapted, support_x, local_y, ways)
+    set_support_stats(adapted, support_x)
+    head = (prototype_head(adapted, support_x, local_y, ways)
+            if initialization is None else PrototypeHead.from_initialization(*initialization))
     optimizer = torch.optim.SGD([*backbone_parameters(adapted), *head.parameters()], lr=lr)
     total = 0.0
-    for _ in range(steps):
+    for step in range(steps):
+        if step > 0:
+            set_support_stats(adapted, support_x)
         optimizer.zero_grad(set_to_none=True)
         loss = F.cross_entropy(head(ssarn_embedding(adapted, support_x)), local_y)
         if not torch.isfinite(loss).item():
@@ -115,6 +152,7 @@ def adapt_task(meta_model: SSARN, support_x: torch.Tensor, local_y: torch.Tensor
                 raise RuntimeError("Missing or nonfinite support gradient")
         optimizer.step()
         total += float(loss.item())
+    set_support_stats(adapted, support_x)
     return adapted, head, optimizer, total / steps
 
 
@@ -123,28 +161,37 @@ def meta_task_step(meta_model: SSARN, meta_optimizer: torch.optim.Optimizer,
                    query_x: torch.Tensor, query_y: torch.Tensor,
                    *, ways: int, inner_steps: int, inner_lr: float
                    ) -> tuple[float, float, SSARN]:
-    """Adapt a fresh copy and apply its query gradient to the meta backbone."""
+    """Combine first-order query gradients with the prototype initialization VJP."""
     meta_optimizer.zero_grad(set_to_none=True)
+    set_support_stats(meta_model, support_x)
+    weight0, bias0 = prototype_initialization(meta_model, support_x, support_y, ways)
     adapted, head, _, support_loss = adapt_task(
-        meta_model, support_x, support_y, ways=ways, steps=inner_steps, lr=inner_lr)
+        meta_model, support_x, support_y, ways=ways, steps=inner_steps, lr=inner_lr,
+        initialization=(weight0, bias0))
     adapted.zero_grad(set_to_none=True)
     head.zero_grad(set_to_none=True)
     query_loss = F.cross_entropy(head(ssarn_embedding(adapted, query_x)), query_y)
     if not torch.isfinite(query_loss).item():
         raise RuntimeError("Nonfinite query loss")
     query_loss.backward()
-    source = dict(adapted.named_parameters())
-    for name, parameter in meta_model.named_parameters():
-        if name.startswith("classifier."):
-            continue
-        gradient = source[name].grad
+    for parameter in head.parameters():
+        if parameter.grad is None or not torch.isfinite(parameter.grad).all().item():
+            raise RuntimeError("Missing or nonfinite query head gradient")
+    meta_parameters = backbone_parameters(meta_model)
+    proto_grads = torch.autograd.grad(
+        [weight0, bias0], meta_parameters,
+        grad_outputs=[head.weight.grad, head.bias.grad], allow_unused=True)
+    for parameter, adapted_parameter, proto_grad in zip(
+            meta_parameters, backbone_parameters(adapted), proto_grads):
+        gradient = adapted_parameter.grad
         if gradient is None or not torch.isfinite(gradient).all().item():
-            raise RuntimeError(f"Missing or nonfinite query gradient: {name}")
+            raise RuntimeError("Missing or nonfinite query backbone gradient")
         parameter.grad = gradient.detach().clone()
+        if proto_grad is not None:
+            if not torch.isfinite(proto_grad).all().item():
+                raise RuntimeError("Nonfinite prototype initialization gradient")
+            parameter.grad.add_(proto_grad.detach())
     meta_optimizer.step()
-    with torch.no_grad():
-        for meta_buffer, adapted_buffer in zip(meta_model.buffers(), adapted.buffers()):
-            meta_buffer.copy_(adapted_buffer)
     return support_loss, float(query_loss.item()), adapted
 
 
@@ -242,7 +289,7 @@ def run_baseline(*, baseline: str = "FOPROTOMAML", dataset: str = "UP",
     destination.mkdir(parents=True)
     cube_file, gt_file, *_ = dataset_spec(dataset)
     config = {
-        "model": "FOProtoMAML-SSARN-v1", "baseline": baseline,
+        "model": "FOProtoMAML-SSARN-v2", "baseline": baseline,
         "method_config": {} if method_config is None else method_config,
         "effective_meta_config": meta, "framework": "PyTorch", "dataset": dataset,
         "seed": seed, "k": k, "split_seed": split.seed,
@@ -255,8 +302,9 @@ def run_baseline(*, baseline: str = "FOPROTOMAML", dataset: str = "UP",
         "classes": list(range(1, classes + 1)),
         "preprocessing": "raw Float32; zero padding; no augmentation",
         "selection": "fixed final epoch; test once after checkpoint",
-        "test_protocol": "deepcopy final meta backbone; initialize C-way prototypes from all split.train pixels; adapt backbone and head with SGD; eval running statistics; classify split.test once",
-        "bn_protocol": "task copy starts with meta buffers; support and query forwards update copy in train mode; copy buffers to meta after each task; test copy adapts in train mode and evaluates in eval mode",
+        "test_protocol": "deepcopy final meta backbone; initialize C-way prototypes from all split.train pixels; adapt backbone and head with SGD; recompute support-only BN moments before each step and after adaptation; classify split.test once in eval mode",
+        "bn_protocol": "non-transductive support-only BN2d/3d moments: reset running stats, momentum=None, no_grad support pass; restore momentum=0.1 and eval; recompute before prototypes, each inner step and query; moments are constants for gradients; no adapted-to-meta buffer copy; test moments use only split.train",
+        "prototype_gradient": "flows through W0,b0 (Meta-Dataset fo-Proto-MAML)",
         "task_pool": "sampled once from fixed train split with QMTN sample_task; shuffled each epoch",
         "python_version": __import__("sys").version.split()[0],
         "torch_version": str(torch.__version__),

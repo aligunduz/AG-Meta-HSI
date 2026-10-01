@@ -219,7 +219,7 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=5)
     parser.add_argument("--epochs", type=int, default=300)
     parser.add_argument("--lr", type=float, default=None,
-                        help="Outer learning rate (default: QMTN 0.002, SSARN 0.001)")
+                        help="Outer learning rate (method default)")
     parser.add_argument("--batch-size", type=int, default=15)
     parser.add_argument("--test-batch-size", type=int, default=32)
     parser.add_argument("--device", choices=("gpu", "cpu"), default="gpu")

@@ -146,17 +146,30 @@ ortalamasıdır. Yeni doğrusal başlık `W_k = 2c_k`, `b_k = -||c_k||²` ile
 başlatılır; en büyük logit, en yakın Öklid prototipini seçer.
 
 QMTN'den farklı olarak her görev **meta omurganın yeni bir kopyasıyla** başlar.
-Destek kaybı bu kopyayı ve görev başlığını SGD ile uyarlar. Sorgu kaybının
-birinci dereceden gradyanı meta omurgaya aktarılır; Adam durumu görevler
-arasında korunur. İkiz ağ yoktur ve prototip başlığı meta öğrenilmez.
+Destek kaybı bu kopyayı ve görev başlığını SGD ile uyarlar. `W0,b0`, meta
+omurganın gradyanlı destek gömmelerinden hesaplanır; görev başlığı bunların
+detach edilmiş kopyalarından yaprak parametre olarak başlar. Sorgu kaybının
+uyarlanmış omurgadaki gradyanına, başlık gradyanının `W0,b0` üzerinden meta
+omurgaya geri yayılımı eklenir. İç SGD adımları gradyan grafiğine girmez;
+Adam durumu görevler arasında korunur. İkiz ağ yoktur ve görev başlığı
+görevler arasında saklanmaz. Model sürümü `FOProtoMAML-SSARN-v2`'dir.
 
 Testte son meta omurganın kopyası alınır. Yalnızca `split.train` içindeki
 45 UP eğitim pikseliyle bütün sınıfların prototipleri kurulur; omurga ve
 başlık varsayılan olarak 3 SGD adımıyla uyarlanır. Ardından eval modunda
-test pikselleri bir kez sınıflandırılır. BatchNorm istatistikleri görev
-kopyasında train modundaki destek ve sorgu geçişleriyle güncellenir ve her
-görev sonunda meta omurgaya kopyalanır; test uyarlaması kendi kopyasında
-yapılır. `METHOD_CONFIG_JSON` veya `--method-config` ile `test_adapt_steps`
+test pikselleri bir kez sınıflandırılır. BatchNorm istatistikleri yalnızca
+destekten hesaplanır: çalışan istatistikler sıfırlanır, `momentum=None`
+ile `no_grad` altında bir destek geçişi yapılır, ardından `momentum=0.1`
+geri yüklenir ve ağ eval moduna alınır. Meta omurganın prototip hesabında
+ve görev kopyasında bu işlem uygulanır; kopyada her SGD adımından önce ve
+sorgu değerlendirmesinden önce güncel parametrelerle tekrarlanır.
+Prototip, SGD ve sorgu hesapları eval modundadır; **BN momentleri gradyan
+açısından sabit kabul edilir**. Kopyanın BN buffer'ları meta modele aktarılmaz.
+Testte istatistikler her uyarlama adımından önce ve en sonda yalnızca
+`split.train` ile hesaplanır; test pikselleri BN istatistiklerine girmez.
+Bu protokol transductive değildir; `config.json` içinde `bn_protocol` ve
+`prototype_gradient` alanlarında kayıtlıdır.
+`METHOD_CONFIG_JSON` veya `--method-config` ile `test_adapt_steps`
 ve `test_adapt_lr` dahil yöntem ayarları değiştirilebilir.
 
 ## Veri ve sabit ayrım

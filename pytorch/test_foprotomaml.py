@@ -1,19 +1,23 @@
 """Behavioral and output-contract checks for first-order Proto-MAML."""
 
+import copy
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import torch
+from torch.nn import functional as F
 from scipy.io import savemat
 
 from .benchmark import run_benchmark
 from .data import make_pixel_split, save_pixel_split
-from .foprotomaml import (PrototypeHead, backbone_parameters, make_task_pool,
+from .foprotomaml import (AdaptedClassifier, PrototypeHead, adapt_task,
+                          backbone_parameters, make_task_pool,
                           meta_task_step, resolve_config, run_baseline,
-                          ssarn_embedding)
+                          prototype_initialization, set_support_stats, ssarn_embedding)
 from .methods import get_method
 from .qmtn import resolve_meta_config, sample_task
 from .ssarn import SSARN
@@ -63,6 +67,92 @@ class FOProtoMAMLTests(unittest.TestCase):
             np.testing.assert_array_equal(support_a, support_b)
             np.testing.assert_array_equal(query_a, query_b)
 
+    def test_meta_gradient_includes_nonzero_prototype_initialization_gradient(self):
+        torch.manual_seed(31)
+        initial = SSARN(103, 9)
+        reference = copy.deepcopy(initial)
+        actual = copy.deepcopy(initial)
+        sx = torch.randn(8, 1, 103, 9, 9)
+        sy = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+        qx = torch.randn(4, 1, 103, 9, 9)
+        qy = torch.tensor([0, 1, 0, 1])
+
+        set_support_stats(reference, sx)
+        weight0, bias0 = prototype_initialization(reference, sx, sy, ways=2)
+        self.assertIsNotNone(weight0.grad_fn)
+        self.assertIsNotNone(bias0.grad_fn)
+        adapted, head, _, _ = adapt_task(
+            reference, sx, sy, ways=2, steps=2, lr=0.01,
+            initialization=(weight0, bias0))
+        self.assertTrue(head.weight.is_leaf and head.bias.is_leaf)
+        adapted.zero_grad(set_to_none=True)
+        head.zero_grad(set_to_none=True)
+        F.cross_entropy(head(ssarn_embedding(adapted, qx)), qy).backward()
+        proto_grads = torch.autograd.grad(
+            [weight0, bias0], backbone_parameters(reference),
+            grad_outputs=[head.weight.grad, head.bias.grad], allow_unused=True)
+        detached_grads = [p.grad.detach().clone() for p in backbone_parameters(adapted)]
+        expected = [query_grad + (proto_grad if proto_grad is not None else 0)
+                    for query_grad, proto_grad in zip(detached_grads, proto_grads)]
+        self.assertGreater(sum(g.abs().sum().item() for g in proto_grads if g is not None), 0)
+        self.assertTrue(any(not torch.allclose(total, detached)
+                            for total, detached in zip(expected, detached_grads)))
+
+        optimizer = torch.optim.SGD(backbone_parameters(actual), lr=0.002)
+        meta_task_step(actual, optimizer, sx, sy, qx, qy,
+                       ways=2, inner_steps=2, inner_lr=0.01)
+        for parameter, gradient, original in zip(
+                backbone_parameters(actual), expected, backbone_parameters(initial)):
+            torch.testing.assert_close(parameter.grad, gradient)
+            torch.testing.assert_close(parameter, original - 0.002 * gradient)
+            self.assertIsNone(parameter.grad.grad_fn)
+        # Meta buffers remain its own support estimate, never the adapted estimate.
+        for actual_buffer, reference_buffer in zip(actual.buffers(), reference.buffers()):
+            torch.testing.assert_close(actual_buffer, reference_buffer)
+
+    def test_support_stats_eval_matches_same_batch_train_output(self):
+        torch.manual_seed(41)
+        net = SSARN(103, 9)
+        sx = torch.randn(20, 1, 103, 9, 9)
+        set_support_stats(net, sx)
+        self.assertFalse(net.training)
+        for module in net.modules():
+            if isinstance(module, (torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+                self.assertFalse(module.training)
+                self.assertEqual(module.momentum, 0.1)
+                self.assertEqual(module.num_batches_tracked.item(), 1)
+                self.assertFalse(module.running_mean.requires_grad)
+                self.assertFalse(module.running_var.requires_grad)
+        self.assertTrue(all(p.grad is None for p in net.parameters()))
+        with torch.no_grad():
+            eval_output = ssarn_embedding(net, sx)
+            net.train()
+            train_output = ssarn_embedding(net, sx)
+        # Running variance is unbiased; train-mode normalization uses biased variance.
+        torch.testing.assert_close(eval_output, train_output, rtol=0.02, atol=0.002)
+
+    def test_adaptation_refreshes_support_stats_and_query_cannot_change_them(self):
+        torch.manual_seed(43)
+        net = SSARN(103, 9)
+        sx = torch.randn(8, 1, 103, 9, 9)
+        sy = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+        with patch("pytorch.foprotomaml.set_support_stats", wraps=set_support_stats) as stats:
+            adapted, head, _, _ = adapt_task(net, sx, sy, ways=2, steps=3, lr=0.01)
+        self.assertEqual(stats.call_count, 4)  # Before each step and after the last.
+        for call in stats.call_args_list:
+            self.assertIs(call.args[0], adapted)
+            self.assertIs(call.args[1], sx)
+        self.assertFalse(adapted.training)
+        buffers = [buffer.clone() for buffer in adapted.buffers()]
+        classifier = AdaptedClassifier(adapted, head).eval()
+        query = 10 + torch.randn(4, 1, 103, 9, 9)
+        with torch.no_grad():
+            full = classifier(query)
+            individual = torch.cat([classifier(x.unsqueeze(0)) for x in query])
+        torch.testing.assert_close(full, individual, rtol=1e-4, atol=1e-4)
+        for before, after in zip(buffers, adapted.buffers()):
+            self.assertTrue(torch.equal(before, after))
+
     def test_one_task_updates_meta_but_keeps_adapted_copy_separate(self):
         torch.manual_seed(17)
         model = SSARN(103, 9)
@@ -105,7 +195,11 @@ class FOProtoMAMLTests(unittest.TestCase):
             self.assertEqual(result["epoch"], 2)
             self.assertEqual(load_results(output)[0], result)
             config = json.loads((output / "config.json").read_text())
-            self.assertEqual(config["model"], "FOProtoMAML-SSARN-v1")
+            self.assertEqual(config["model"], "FOProtoMAML-SSARN-v2")
+            self.assertEqual(config["prototype_gradient"],
+                             "flows through W0,b0 (Meta-Dataset fo-Proto-MAML)")
+            self.assertIn("moments are constants for gradients", config["bn_protocol"])
+            self.assertIn("test moments use only split.train", config["bn_protocol"])
             self.assertEqual(config["effective_meta_config"]["support_shots"], 4)
             self.assertEqual(len(config["source_sha256"]), 5)
             checkpoint = torch.load(output / "checkpoint.pt", map_location="cpu",
